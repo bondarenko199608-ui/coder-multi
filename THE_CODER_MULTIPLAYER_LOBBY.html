@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>THE CODER</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; font-family: "Courier New", monospace; }
+  canvas { display: block; }
+  #crosshair { position: fixed; left: 50%; top: 50%; width: 12px; height: 12px; margin: -6px 0 0 -6px; border: 1px solid #0f0; border-radius: 50%; box-shadow: 0 0 6px #0f0; opacity: .65; pointer-events: none; z-index: 4; }
+  #hint { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); color: #0f0; font-size: 11px; letter-spacing: 1.5px; text-shadow: 0 0 6px #0f0; opacity: .72; pointer-events: none; white-space: nowrap; z-index: 4; }
+  #stats { position: fixed; left: 14px; bottom: 14px; color: #0f0; font-size: 12px; line-height: 1.7; letter-spacing: 1px; text-shadow: 0 0 6px #0f0; opacity: .8; pointer-events: none; z-index: 4; }
+  #start, #pause { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(0,30,0,.88), rgba(0,0,0,.98)); color: #0f0; z-index: 10; cursor: pointer; letter-spacing: 2px; text-align: center; padding: 24px; }
+  #pause { display: none; }
+  #start h1, #pause h1 { font-size: clamp(28px, 5vw, 42px); margin: 0 0 12px; letter-spacing: 8px; text-shadow: 0 0 20px #0f0; }
+  #start:not(.menu-overlay) p, #pause p { margin: 5px; opacity: .78; font-size: 13px; }
+  .blink { animation: bl 1s steps(2) infinite; }
+  @keyframes bl { 50% { opacity: 0; } }
+  #vig { position: fixed; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 50%, transparent 40%, rgba(0,0,0,.6) 100%); z-index: 2; }
+  #scan { position: fixed; inset: 0; pointer-events: none; z-index: 3; opacity: .12; background: repeating-linear-gradient(0deg, rgba(0,255,0,.15) 0 1px, transparent 1px 3px); animation: sc 10s linear infinite; mix-blend-mode: screen; }
+  @keyframes sc { 100% { background-position: 0 300px; } }
+  #mute { position: fixed; right: 14px; top: 14px; color: #0f0; font-size: 11px; letter-spacing: 2px; text-shadow: 0 0 6px #0f0; opacity: .65; cursor: pointer; user-select: none; z-index: 12; }
+  #mute:hover { opacity: 1; }
+  #threat { position: fixed; inset: 0; pointer-events: none; z-index: 4; opacity: 0; background: radial-gradient(circle at 50% 50%, transparent 48%, rgba(0,55,0,.8) 100%); transition: opacity .25s ease; }
+  #screamer { position: fixed; inset: 0; z-index: 100; pointer-events: none; display: none; overflow: hidden; background: #000; }
+  #screamer.on { display: block; }
+  #screamer canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  #screamer .flash { position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(255,0,0,.58), rgba(0,0,0,1) 72%); mix-blend-mode: screen; animation: flash .11s steps(2) infinite; }
+  @keyframes flash { 0% { opacity: .18; } 50% { opacity: .85; } 100% { opacity: .25; } }
+  #screamer .shake { position: absolute; inset: -20px; animation: shk .08s infinite; }
+  @keyframes shk { 0% { transform: translate(0,0); } 25% { transform: translate(-8px,6px); } 50% { transform: translate(6px,-10px); } 75% { transform: translate(-4px,-6px); } 100% { transform: translate(10px,4px); } }
+  #error { display: none; position: fixed; inset: 0; z-index: 200; color: #0f0; background: #000; padding: 28px; white-space: pre-wrap; }
+
+  /* THE CODER — cinematic main menu */
+  #start.menu-overlay {
+    position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: row; align-items: stretch; justify-content: center;
+    padding: clamp(16px, 3vw, 44px); overflow: auto; cursor: default; text-align: left; letter-spacing: normal;
+    color: #eaffea; background: linear-gradient(90deg, rgba(0,0,0,.95) 0%, rgba(0,8,3,.88) 42%, rgba(0,0,0,.22) 100%);
+    backdrop-filter: blur(1.5px);
+  }
+  .menu-shell { width: min(1500px, 100%); min-height: min(760px, 100%); margin: auto; display: grid; grid-template-columns: minmax(560px, 1.2fr) minmax(280px, .8fr); gap: clamp(12px, 2.5vw, 42px); align-items: stretch; }
+  .menu-main { min-width: 0; display: flex; flex-direction: column; padding: clamp(3px, 1vw, 14px) 0; }
+  .menu-topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: clamp(22px, 4vh, 44px); }
+  .brand-lockup { display: flex; gap: 12px; align-items: center; }
+  .brand-mark { width: 42px; height: 42px; display: grid; place-items: center; position: relative; color: #8dff9c; border: 1px solid rgba(91,255,117,.58); background: rgba(0,255,65,.07); box-shadow: inset 0 0 20px rgba(0,255,65,.07), 0 0 22px rgba(0,255,65,.08); font-weight: 900; font-size: 17px; }
+  .brand-mark:before,.brand-mark:after { content:""; position:absolute; width:6px; height:6px; border-color:#54ff70; border-style:solid; }
+  .brand-mark:before { top:-4px; left:-4px; border-width:1px 0 0 1px; } .brand-mark:after { bottom:-4px; right:-4px; border-width:0 1px 1px 0; }
+  .brand-name { color:#f1fff2; font: 700 13px/1.2 "Courier New",monospace; letter-spacing: 4px; }
+  .brand-sub { display:block; margin-top:5px; color:rgba(178,255,190,.55); font-size:9px; letter-spacing:2.2px; }
+  .build-chip { border:1px solid rgba(87,255,108,.25); padding:8px 11px; color:rgba(177,255,187,.76); background:rgba(0,30,8,.4); font-size:9px; letter-spacing:1.7px; white-space:nowrap; }
+  .build-chip i { display:inline-block; width:6px;height:6px;border-radius:50%;background:#4dff70; margin-right:7px; box-shadow:0 0 9px #3fff62; }
+  .hero { margin-bottom: clamp(22px, 4vh, 40px); position:relative; }
+  .hero-overline { margin:0 0 13px; color:#69ff82; font-size:10px; letter-spacing:4px; text-transform:uppercase; }
+  #start .hero h1 { margin:0; font:900 clamp(46px, 6.5vw, 86px)/.93 "Courier New",monospace; letter-spacing:clamp(1px, .8vw, 9px); color:#effff0; text-shadow:0 0 28px rgba(0,255,58,.18); }
+  #start .hero h1 span { color:#56ff73; text-shadow:0 0 28px rgba(0,255,68,.42); }
+  .hero-subtitle { max-width:590px; margin:17px 0 0; color:rgba(220,255,225,.66); font:12px/1.8 "Courier New",monospace; letter-spacing:1.1px; }
+  .hero-subtitle b { color:#b4ffc0; font-weight:700; }
+  .menu-workspace { display:grid; grid-template-columns:minmax(145px, .62fr) minmax(260px, 1fr); gap:13px; min-height:280px; flex:1; }
+  .menu-nav { display:flex; flex-direction:column; gap:8px; }
+  .menu-nav-btn { position:relative; display:flex; align-items:center; gap:12px; width:100%; min-height:58px; text-align:left; padding:10px 11px; color:rgba(215,255,221,.67); border:1px solid rgba(91,255,117,.13); background:linear-gradient(105deg,rgba(1,26,9,.7),rgba(0,0,0,.35)); cursor:pointer; transition:all .2s ease; font-family:inherit; }
+  .menu-nav-btn:hover,.menu-nav-btn.active { color:#eaffed; border-color:rgba(85,255,111,.58); background:linear-gradient(105deg,rgba(0,85,25,.42),rgba(0,15,5,.5)); transform:translateX(2px); box-shadow:inset 2px 0 #51ff6f,0 0 20px rgba(0,255,68,.05); }
+  .nav-index { width:24px; flex:0 0 24px; color:rgba(100,255,123,.45); font-size:10px; letter-spacing:0; }
+  .nav-copy { display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .nav-copy strong { font-size:11px; font-weight:700; letter-spacing:1.5px; }
+  .nav-copy small { font-size:9px; line-height:1.3; color:rgba(199,255,207,.4); letter-spacing:.25px; }
+  .nav-symbol { margin-left:auto; color:#55ff73; font-size:14px; opacity:.85; }
+  .page-card { position:relative; min-width:0; min-height:280px; padding:clamp(15px, 1.7vw, 24px); border:1px solid rgba(90,255,113,.21); background:linear-gradient(135deg,rgba(0,24,8,.78),rgba(0,0,0,.73)); box-shadow:inset 0 0 36px rgba(0,255,68,.025); overflow:hidden; }
+  .page-card:before { content:""; position:absolute; left:0; top:0; width:42px; height:2px; background:#5eff79; box-shadow:0 0 14px #19ff4c; }
+  .page-content { display:none; position:relative; z-index:1; animation:pageIn .22s ease-out; }
+  .page-content.active { display:block; }
+  @keyframes pageIn { from {opacity:0;transform:translateY(5px)} to {opacity:1;transform:translateY(0)} }
+  .page-kicker { margin:0 0 10px; color:#64ff7c; font-size:9px; letter-spacing:2.7px; }
+  #start .page-content h2 { margin:0 0 12px; color:#edfff0; font-size:clamp(17px, 1.5vw, 22px); line-height:1.25; letter-spacing:1.2px; }
+  .page-description { margin:0 0 18px; color:rgba(219,255,225,.6); font-size:10px; line-height:1.8; letter-spacing:.2px; }
+  .play-button { width:100%; min-height:48px; display:flex; justify-content:center; align-items:center; gap:12px; margin:17px 0 0; border:1px solid #68ff81; color:#001907; background:linear-gradient(100deg,#67ff81,#25e85a); box-shadow:0 0 28px rgba(0,255,68,.12); font:900 12px "Courier New",monospace; letter-spacing:2.5px; cursor:pointer; transition:transform .2s,filter .2s,box-shadow .2s; }
+  .play-button:hover { transform:translateY(-2px); filter:brightness(1.08); box-shadow:0 0 35px rgba(0,255,68,.23); }
+  .play-button .play-icon { font-size:15px; }
+  .home-metrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; margin-top:19px; }
+  .metric { padding:11px 12px; background:rgba(0,255,68,.035); border:1px solid rgba(95,255,120,.12); }
+  .metric span { display:block; margin-bottom:6px; color:rgba(187,255,198,.48); font-size:8px; letter-spacing:1.4px; }
+  .metric strong { color:#b6ffc2; font-size:10px; font-weight:700; letter-spacing:1px; }
+  .setting-list { display:flex; flex-direction:column; gap:13px; margin-top:15px; }
+  .setting-row { display:grid; grid-template-columns:minmax(80px,1fr) minmax(120px,1.1fr); gap:12px; align-items:center; }
+  .setting-row label { color:rgba(221,255,227,.78); font-size:10px; letter-spacing:.5px; }
+  .setting-row select { min-width:0; width:100%; padding:9px 28px 9px 10px; border:1px solid rgba(84,255,112,.3); border-radius:0; outline:none; color:#dfffe4; background:#04140a; font:10px "Courier New",monospace; cursor:pointer; }
+  .setting-row select:focus { border-color:#57ff73; box-shadow:0 0 12px rgba(0,255,68,.1); }
+  .volume-control { display:flex; align-items:center; gap:10px; }
+  .volume-control input { width:100%; accent-color:#58ff74; cursor:pointer; }
+  .volume-value { width:36px; text-align:right; color:#8dffa0; font-size:10px; }
+  .setting-note { margin:15px 0 0; color:rgba(196,255,205,.38); font-size:9px; line-height:1.7; }
+  .language-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:16px; }
+  .language-option { min-height:42px; text-align:left; padding:9px 10px; color:rgba(223,255,228,.68); border:1px solid rgba(90,255,113,.16); background:rgba(0,20,5,.45); font:10px "Courier New",monospace; cursor:pointer; transition:.18s; }
+  .language-option:hover,.language-option.active { color:#eaffed; border-color:rgba(94,255,120,.7); background:rgba(0,108,28,.22); box-shadow:inset 2px 0 #5aff75; }
+  .language-option span { margin-right:8px; }
+  .author-list { display:flex; flex-direction:column; gap:9px; margin-top:15px; }
+  .author-card { display:flex; align-items:center; gap:11px; padding:11px; border:1px solid rgba(91,255,117,.13); background:rgba(0,20,5,.4); }
+  .author-avatar { flex:0 0 35px; width:35px; height:35px; display:grid; place-items:center; color:#8effa0; border:1px solid rgba(95,255,120,.3); background:rgba(0,255,68,.06); font-size:11px; }
+  .author-name { color:#eaffed; font-size:11px; letter-spacing:.5px; }
+  .author-role { margin-top:5px; color:rgba(195,255,205,.48); font-size:9px; }
+  .page-back { display:inline-block; margin-top:15px; padding:8px 0; color:rgba(139,255,157,.75); background:transparent; border:0; font:10px "Courier New",monospace; letter-spacing:1px; cursor:pointer; }
+  .page-back:hover { color:#fff; }
+  .menu-footer { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:20px; color:rgba(171,255,184,.3); font-size:8px; letter-spacing:1.6px; }
+  .footer-lines { display:flex; gap:4px; } .footer-lines i { display:block; width:17px; height:2px; background:rgba(81,255,112,.4); }
+  .menu-entity { position:relative; min-width:0; min-height:530px; display:flex; flex-direction:column; justify-content:center; align-items:stretch; padding:0 7px; pointer-events:none; }
+  .entity-topline,.entity-bottomline { display:flex; justify-content:space-between; gap:12px; color:rgba(153,255,169,.45); font-size:9px; letter-spacing:1.7px; }
+  .entity-topline span:last-child { color:rgba(108,255,132,.72); }
+  .entity-stage { flex:1; position:relative; min-height:390px; display:grid; place-items:center; }
+  .entity-stage:before { content:none; }
+  .entity-stage:after { content:none; }
+  .entity-ring { position:absolute; width:min(19vw,240px); aspect-ratio:1; border:0; border-radius:0; animation:none; }
+  .entity-ring:before,.entity-ring:after { content:""; position:absolute; width:5px;height:5px;border-radius:50%;background:#4cff6d;box-shadow:0 0 12px #4cff6d; }
+  .entity-ring:before { top:16%;left:17%; } .entity-ring:after { right:10%;bottom:22%; }
+  @keyframes orbit { to { transform:rotate(360deg); } }
+  .entity-reticle { position:absolute; width:210px;height:210px; opacity:.25; background:linear-gradient(transparent calc(50% - .5px),rgba(84,255,112,.4) 50%,transparent calc(50% + .5px)),linear-gradient(90deg,transparent calc(50% - .5px),rgba(84,255,112,.4) 50%,transparent calc(50% + .5px)); }
+  .entity-caption { position:absolute; bottom:20px; left:4%; right:4%; display:flex; justify-content:space-between; align-items:end; gap:12px; color:rgba(168,255,180,.4); font-size:9px; letter-spacing:1.5px; }
+  .entity-caption strong { display:block; color:rgba(117,255,139,.8); font-size:11px; letter-spacing:2.2px; margin-bottom:6px; }
+  .entity-caption small { font-size:8px; letter-spacing:1px; }
+  .entity-readout { position:absolute; top:15%; right:0; display:flex; flex-direction:column; gap:6px; color:rgba(130,255,148,.54); font-size:8px; letter-spacing:1.2px; text-align:right; }
+  .entity-readout span { padding:5px 7px; border-right:1px solid rgba(79,255,106,.37); background:linear-gradient(90deg,transparent,rgba(0,255,68,.04)); }
+  .entity-bottomline { border-top:1px solid rgba(84,255,112,.12); padding-top:13px; }
+  .menu-smallprint { max-width:300px; text-align:right; line-height:1.7; }
+  #pause { cursor:pointer; }
+  @media (max-width: 1000px) {
+    .menu-shell { grid-template-columns:minmax(520px,1fr) minmax(180px,.5fr); gap:8px; }
+    .menu-workspace { grid-template-columns:135px minmax(245px,1fr); }
+    .menu-entity { opacity:.75; }
+    .entity-readout { display:none; }
+  }
+  @media (max-width: 760px) {
+    #start.menu-overlay { padding:16px; background:linear-gradient(90deg,rgba(0,0,0,.96),rgba(0,7,2,.82)); }
+    .menu-shell { display:block; min-height:100%; }
+    .menu-entity { display:none; }
+    .menu-topline { margin-bottom:26px; }
+    .build-chip { font-size:8px; }
+    .hero { margin-bottom:24px; }
+    #start .hero h1 { font-size:clamp(44px,12vw,70px); }
+    .menu-workspace { grid-template-columns:1fr; }
+    .menu-nav { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .menu-nav-btn { min-height:52px; }
+    .page-card { min-height:280px; }
+    .menu-footer { padding-bottom:10px; }
+  }
+  @media (max-width: 420px) {
+    .build-chip { display:none; }
+    .setting-row { grid-template-columns:1fr; gap:6px; }
+    .hero-subtitle { font-size:10px; }
+    .language-grid { grid-template-columns:1fr 1fr; }
+  }
+
+
+
+  /* Mobile controls: thumb joystick, swipe-look, hold-to-run and pause. */
+  #mobileControls { display:none; position:fixed; inset:0; z-index:6; pointer-events:none; touch-action:none; user-select:none; -webkit-user-select:none; }
+  #mobileLookZone { position:absolute; top:0; right:0; bottom:0; width:58%; pointer-events:auto; touch-action:none; background:transparent; }
+  #mobileJoystick { position:absolute; left:calc(20px + env(safe-area-inset-left)); bottom:calc(22px + env(safe-area-inset-bottom)); width:clamp(108px, 27vw, 142px); aspect-ratio:1; border-radius:50%; pointer-events:auto; touch-action:none; background:radial-gradient(circle,rgba(0,80,23,.22),rgba(0,18,7,.4)); border:1px solid rgba(91,255,117,.28); box-shadow:inset 0 0 24px rgba(0,255,65,.07),0 0 18px rgba(0,255,65,.08); }
+  .joystick-ring { position:absolute; inset:17%; border:1px dashed rgba(91,255,117,.24); border-radius:50%; }
+  #mobileStick { position:absolute; left:50%; top:50%; width:43%; height:43%; border-radius:50%; transform:translate(calc(-50% + var(--stick-x, 0px)),calc(-50% + var(--stick-y, 0px))); border:1px solid rgba(116,255,137,.7); background:radial-gradient(circle at 35% 28%,rgba(114,255,137,.44),rgba(0,104,29,.6)); box-shadow:0 0 18px rgba(0,255,65,.18),inset 0 0 12px rgba(130,255,145,.15); }
+  #mobileRun,#mobilePause { position:absolute; display:flex; align-items:center; justify-content:center; flex-direction:column; gap:3px; color:#caffd2; background:rgba(0,25,8,.68); border:1px solid rgba(93,255,117,.48); box-shadow:0 0 20px rgba(0,255,65,.09),inset 0 0 14px rgba(0,255,65,.06); backdrop-filter:blur(5px); font:700 10px/1 "Courier New",monospace; letter-spacing:1px; pointer-events:auto; touch-action:none; -webkit-tap-highlight-color:transparent; }
+  #mobileRun { right:calc(23px + env(safe-area-inset-right)); bottom:calc(27px + env(safe-area-inset-bottom)); width:clamp(72px, 19vw, 92px); height:clamp(72px, 19vw, 92px); border-radius:50%; }
+  #mobileRun .mobile-run-icon { font-size:27px; line-height:1; }
+  #mobilePause { right:calc(39px + env(safe-area-inset-right)); bottom:calc(124px + env(safe-area-inset-bottom)); width:52px; height:52px; border-radius:50%; font-size:20px; }
+  #mobileRun.pressed,#mobileRun:active,#mobilePause:active { color:#001707; background:rgba(87,255,111,.92); box-shadow:0 0 26px rgba(0,255,65,.28); }
+  #mobileControlsHint { position:absolute; left:calc(18px + env(safe-area-inset-left)); bottom:calc(166px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; gap:5px; color:rgba(150,255,166,.42); font:8px/1.2 "Courier New",monospace; letter-spacing:1.2px; pointer-events:none; }
+  body.touch-device #stats { bottom:calc(168px + env(safe-area-inset-bottom)); left:calc(20px + env(safe-area-inset-left)); font-size:10px; }
+  body.touch-device #hint { top:calc(12px + env(safe-area-inset-top)); max-width:64vw; white-space:normal; text-align:center; font-size:9px; line-height:1.5; letter-spacing:.7px; }
+  body.touch-device #mute { top:calc(12px + env(safe-area-inset-top)); right:calc(12px + env(safe-area-inset-right)); font-size:9px; letter-spacing:1px; }
+  body.touch-device #crosshair { width:9px; height:9px; margin:-4.5px 0 0 -4.5px; }
+  body.touch-device #mobileControls { display:block; }
+  body.touch-device #start.menu-overlay { overscroll-behavior:contain; -webkit-overflow-scrolling:touch; }
+  body.touch-device #start .menu-nav-btn, body.touch-device #start .play-button, body.touch-device #start .language-option, body.touch-device #start .page-back { min-height:46px; }
+  @media (max-width:480px) {
+    #mobileControlsHint { bottom:calc(157px + env(safe-area-inset-bottom)); font-size:7px; }
+    #mobilePause { bottom:calc(112px + env(safe-area-inset-bottom)); right:calc(33px + env(safe-area-inset-right)); width:48px; height:48px; }
+    #mobileJoystick { left:calc(14px + env(safe-area-inset-left)); bottom:calc(18px + env(safe-area-inset-bottom)); }
+    #mobileRun { right:calc(16px + env(safe-area-inset-right)); bottom:calc(20px + env(safe-area-inset-bottom)); }
+    body.touch-device #stats { bottom:calc(158px + env(safe-area-inset-bottom)); left:calc(15px + env(safe-area-inset-left)); }
+    body.touch-device #hint { max-width:59vw; left:46%; }
+  }
+  @media (orientation:landscape) and (max-height:520px) {
+    #mobileJoystick { width:clamp(86px, 21vh, 112px); bottom:calc(10px + env(safe-area-inset-bottom)); }
+    #mobileRun { width:64px; height:64px; bottom:calc(12px + env(safe-area-inset-bottom)); }
+    #mobilePause { width:44px; height:44px; bottom:calc(88px + env(safe-area-inset-bottom)); }
+    #mobileControlsHint { display:none; }
+    body.touch-device #stats { bottom:calc(124px + env(safe-area-inset-bottom)); }
+  }
+
+
+  /* THE CODER multiplayer lobby */
+  .mp-field { display:flex; flex-direction:column; gap:6px; margin-top:11px; }
+  .mp-field label { color:rgba(221,255,227,.78); font-size:10px; letter-spacing:.6px; }
+  .mp-field input { width:100%; min-width:0; padding:11px 12px; border:1px solid rgba(84,255,112,.3); outline:none; border-radius:0; color:#dfffe4; background:#04140a; font:11px "Courier New",monospace; letter-spacing:1px; }
+  .mp-field input:focus { border-color:#57ff73; box-shadow:0 0 12px rgba(0,255,68,.1); }
+  .mp-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin-top:12px; }
+  .mp-button { min-width:0; min-height:42px; padding:9px 8px; border:1px solid rgba(88,255,112,.35); color:#caffd2; background:rgba(0,30,9,.75); font:700 9px/1.35 "Courier New",monospace; letter-spacing:1px; cursor:pointer; transition:.18s; }
+  .mp-button:hover:not(:disabled) { border-color:#64ff7c; background:rgba(0,100,26,.32); }
+  .mp-button.primary { color:#001907; border-color:#68ff81; background:linear-gradient(100deg,#67ff81,#25e85a); }
+  .mp-button.danger { border-color:rgba(255,90,90,.36); color:#ffb4b4; }
+  .mp-button:disabled { cursor:wait; opacity:.45; }
+  .mp-state { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:13px; padding:10px 11px; border:1px solid rgba(90,255,113,.18); background:rgba(0,255,68,.035); }
+  .mp-state-label { color:rgba(190,255,200,.48); font-size:8px; letter-spacing:1.3px; }
+  #mpStatus { color:#9affaa; font-size:9px; line-height:1.5; text-align:right; }
+  #mpPlayerCount { color:#d4ffdb; white-space:nowrap; font-size:10px; }
+  #mpRoster { display:flex; flex-direction:column; gap:6px; margin-top:8px; max-height:100px; overflow:auto; }
+  .mp-roster-item { display:flex; align-items:center; gap:8px; padding:7px 9px; border:1px solid rgba(88,255,112,.13); color:rgba(222,255,227,.78); background:rgba(0,16,5,.42); font-size:9px; }
+  .mp-dot { width:6px; height:6px; border-radius:50%; flex:0 0 6px; background:#51ff70; box-shadow:0 0 8px #51ff70; }
+  .mp-roster-item small { margin-left:auto; color:rgba(180,255,192,.4); font-size:8px; }
+  .mp-note { margin:10px 0 0; color:rgba(196,255,205,.42); font-size:8px; line-height:1.65; }
+  .mp-code-row { display:grid; grid-template-columns:minmax(0,1fr) 86px; gap:7px; }
+  @media (max-width:420px) { .mp-actions { grid-template-columns:1fr; } .mp-code-row { grid-template-columns:minmax(0,1fr) 78px; } }
+
+
+  /* Digital CODE HUB + voice/video co-op */
+  .mp-lobby-shell{display:flex;flex-direction:column;gap:12px;min-width:0}
+  .mp-lobby-banner{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;padding:11px 13px;border:1px solid rgba(82,255,113,.35);background:linear-gradient(115deg,rgba(0,55,16,.7),rgba(0,0,0,.5));position:relative;overflow:hidden}
+  .mp-lobby-banner:after{content:"01001101 01010000  //  CODE HUB  //  ACCESS GRANTED  //  001101";position:absolute;right:-6px;top:0;color:rgba(75,255,111,.075);font-size:19px;letter-spacing:2px;white-space:nowrap;pointer-events:none}
+  .mp-lobby-eyebrow{color:#5bff78;font-size:8px;letter-spacing:2.3px;margin-bottom:5px}
+  .mp-lobby-title{margin:0;color:#eaffed;font-size:clamp(15px,2vw,22px);letter-spacing:1.6px;text-shadow:0 0 15px rgba(0,255,70,.25)}
+  .mp-lobby-live{white-space:nowrap;font-size:8px;letter-spacing:1px;color:#9bffab;border:1px solid rgba(89,255,118,.28);padding:7px 8px;background:rgba(0,20,6,.5)}
+  .mp-code-chamber{position:relative;min-height:100px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;padding:14px;border:1px solid rgba(74,255,108,.22);background:#010603;overflow:hidden;isolation:isolate}
+  .mp-code-rain{position:absolute;inset:0;z-index:-1;opacity:.25;overflow:hidden;pointer-events:none;color:#2cff57;font-size:9px;line-height:1.55;letter-spacing:2px;word-break:break-all;background:repeating-linear-gradient(0deg,rgba(0,255,54,.08) 0 1px,transparent 1px 5px)}
+  .mp-code-rain span{display:block;animation:mpCodeScroll 9s linear infinite;white-space:normal}
+  .mp-code-rain span:nth-child(2){animation-duration:13s;animation-direction:reverse;opacity:.6}.mp-code-rain span:nth-child(3){animation-duration:16s;opacity:.7}
+  @keyframes mpCodeScroll{to{transform:translateY(-25%)}}
+  .mp-chamber-side{font-size:8px;line-height:1.7;letter-spacing:1.2px;color:rgba(116,255,139,.52);overflow-wrap:anywhere}
+  .mp-chamber-side:last-child{text-align:right}
+  .mp-chamber-core{text-align:center;padding:6px 14px;border:1px solid rgba(88,255,113,.55);background:rgba(0,14,4,.85);box-shadow:0 0 20px rgba(0,255,55,.08)}
+  .mp-chamber-core b{display:block;font-size:clamp(11px,1.6vw,16px);letter-spacing:2px;color:#dfffe4}.mp-chamber-core small{display:block;margin-top:5px;font-size:8px;letter-spacing:1.6px;color:#59ff77}
+  .mp-section-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:1px 0 8px;color:#8dffa0;font-size:9px;letter-spacing:1.3px}
+  .mp-section-head small{font-size:8px;color:rgba(199,255,207,.45);text-align:right}
+  .mp-computer-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .mp-pc{position:relative;display:flex;align-items:center;gap:10px;min-height:88px;min-width:0;padding:11px;border:1px solid rgba(77,255,109,.24);background:linear-gradient(135deg,rgba(0,38,10,.8),rgba(0,5,2,.9));color:#d9ffe0;font:inherit;text-align:left;cursor:pointer;transition:.2s;overflow:hidden}
+  .mp-pc:before{content:"";position:absolute;left:0;top:0;bottom:0;width:2px;background:rgba(81,255,112,.4)}
+  .mp-pc:hover,.mp-pc:focus-visible{outline:none;border-color:#59ff77;transform:translateY(-2px);box-shadow:0 0 18px rgba(0,255,65,.1);background:linear-gradient(135deg,rgba(0,77,22,.6),rgba(0,6,2,.9))}
+  .mp-pc-icon{flex:0 0 45px;width:45px;height:37px;position:relative;display:grid;place-items:center;border:1px solid rgba(86,255,116,.64);background:repeating-linear-gradient(0deg,rgba(0,255,61,.13) 0 1px,transparent 1px 4px);color:#60ff7e;font-size:18px;text-shadow:0 0 8px #00ff45}
+  .mp-pc-icon:after{content:"";position:absolute;left:15px;right:15px;bottom:-6px;height:4px;border-bottom:1px solid #4cff6d;border-left:1px solid #4cff6d;border-right:1px solid #4cff6d}
+  .mp-pc-copy{display:flex;flex-direction:column;gap:6px;min-width:0}.mp-pc-copy strong{font-size:10px;letter-spacing:1.5px}.mp-pc-copy small{font-size:8px;line-height:1.4;color:rgba(190,255,202,.47)}
+  .mp-pc-status{margin-left:auto;align-self:flex-start;padding:4px;border:1px solid rgba(89,255,118,.28);font-size:7px;letter-spacing:.5px;color:#6bff85;white-space:nowrap}
+  .mp-map-soon{margin:9px 0 0;padding:9px 10px;border:1px dashed rgba(90,255,113,.2);background:rgba(0,18,5,.35);color:rgba(200,255,209,.48);font-size:8px;line-height:1.6}
+  .mp-terminal-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid rgba(87,255,111,.18)}
+  .mp-terminal-title{color:#e3ffe7;font-size:12px;letter-spacing:1.4px}.mp-terminal-sub{margin-top:4px;color:rgba(185,255,197,.42);font-size:8px;letter-spacing:1px}
+  .mp-back-hall{flex:0 0 auto;border:1px solid rgba(84,255,112,.25);background:rgba(0,20,5,.65);color:#9dffad;padding:8px 9px;font:9px "Courier New",monospace;cursor:pointer}
+  .mp-config-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+  .mp-field select,.mp-field input{min-height:36px}
+  .mp-field select{width:100%;min-width:0;padding:9px 10px;border:1px solid rgba(84,255,112,.3);border-radius:0;outline:none;color:#dfffe4;background:#04140a;font:10px "Courier New",monospace}
+  .mp-check-row{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px;border:1px solid rgba(90,255,113,.17);background:rgba(0,15,4,.4);color:#caffd2;font-size:9px;line-height:1.5}
+  .mp-check-row input{accent-color:#58ff74;width:17px;height:17px;flex:0 0 17px}
+  .mp-media-panel{margin-top:12px;padding:11px;border:1px solid rgba(86,255,111,.2);background:linear-gradient(140deg,rgba(0,24,8,.8),rgba(0,0,0,.58))}
+  .mp-media-head{display:flex;align-items:center;justify-content:space-between;gap:8px;color:#caffd2;font-size:9px;letter-spacing:1.2px;margin-bottom:9px}
+  .mp-media-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .mp-button.active{border-color:#69ff81;background:rgba(0,100,25,.34);color:#eaffed;box-shadow:inset 2px 0 #4eff6c}
+  .mp-media-status{margin-top:8px;color:rgba(192,255,204,.52);font-size:8px;line-height:1.6;overflow-wrap:anywhere}
+  .mp-media-lower{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:10px;margin-top:10px;align-items:start}
+  .mp-preview-wrap{min-width:0}.mp-preview-label{font-size:8px;letter-spacing:1px;color:rgba(190,255,200,.5);margin-bottom:6px}
+  #localPreview{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;transform:scaleX(-1);background:#010603;border:1px solid rgba(87,255,111,.27)}
+  .mp-noise-head{display:flex;justify-content:space-between;gap:8px;color:rgba(212,255,219,.78);font-size:8px;letter-spacing:.7px}.mp-noise-head output{color:#6fff85;font-size:9px}
+  #mpNoiseSensitivity{display:block;width:100%;margin:8px 0 6px;accent-color:#58ff74}
+  .mp-noise-meter{height:9px;border:1px solid rgba(83,255,110,.24);background:#010603;padding:1px}.mp-noise-meter span{display:block;width:0;height:100%;background:linear-gradient(90deg,#11a83a,#64ff7f,#d5ff64);box-shadow:0 0 8px rgba(72,255,103,.38);transition:width .08s linear}
+  .mp-noise-caption{color:rgba(192,255,204,.42);font-size:8px;line-height:1.55;margin-top:7px}
+  #mpRemoteMediaGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}
+  .mp-remote-tile{min-width:0;padding:5px;border:1px solid rgba(88,255,112,.2);background:rgba(0,7,2,.8)}.mp-remote-tile strong{display:block;margin-bottom:4px;font-size:8px;font-weight:400;letter-spacing:.5px;color:#baffc6;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mp-remote-tile video{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#010603;transform:scaleX(-1)}
+  .mp-roster-item .mp-media-badge{margin-left:auto;font-size:7px;letter-spacing:.4px;color:rgba(140,255,158,.65)}
+  .mp-note.privacy{border-top:1px solid rgba(85,255,110,.12);padding-top:9px}
+  [hidden].mp-view{display:none!important}
+  @media(max-width:540px){.mp-code-chamber{grid-template-columns:1fr auto 1fr;padding:9px;gap:5px}.mp-chamber-side{font-size:7px;letter-spacing:.3px}.mp-chamber-core{padding:7px 8px}.mp-computer-grid{gap:7px}.mp-pc{min-height:78px;padding:8px;gap:8px}.mp-pc-icon{flex-basis:34px;width:34px;height:30px;font-size:14px}.mp-pc-copy strong{font-size:9px}.mp-pc-status{display:none}.mp-config-grid{grid-template-columns:1fr}.mp-media-lower{grid-template-columns:1fr}.mp-preview-wrap{max-width:220px}.mp-lobby-live{font-size:7px;padding:6px}.mp-media-buttons{grid-template-columns:1fr 1fr}}
+
+
+  #mpRemoteMediaLayer{display:none;position:fixed;right:12px;top:54px;z-index:7;width:min(230px,31vw);max-height:46vh;overflow:auto;padding:6px;border:1px solid rgba(88,255,112,.32);background:rgba(0,8,2,.82);box-shadow:0 0 20px rgba(0,255,55,.08);backdrop-filter:blur(5px);pointer-events:auto}
+  #mpRemoteMediaLayer.active{display:block}
+  #mpRemoteMediaGrid{display:grid;grid-template-columns:1fr;gap:6px}
+  #mpRemoteMediaLayer .mp-remote-tile video{aspect-ratio:16/9}
+  @media(max-width:640px){#mpRemoteMediaLayer{right:7px;top:48px;width:min(150px,35vw);max-height:35vh;padding:4px}#mpRemoteMediaLayer .mp-remote-tile{padding:3px}#mpRemoteMediaLayer .mp-remote-tile strong{font-size:7px}}
+
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="vig"></div><div id="scan"></div><div id="threat"></div>
+<div id="crosshair"></div>
+<div id="hint">WASD · МЫШЬ · SHIFT БЕГ · ESC ПАУЗА · M ЗВУК</div>
+<div id="stats"><span data-i18n="killsLabel">УБИЙСТВА:</span> <span id="kills">0</span><br><span data-i18n="stateLabel">СОСТОЯНИЕ:</span> <span id="status">ОЖИДАНИЕ</span></div>
+<div id="mute">[ SOUND: ON ]</div>
+<div id="mobileControls" aria-label="Мобильное управление">
+  <div id="mobileLookZone" aria-label="Проведите пальцем, чтобы повернуть камеру"></div>
+  <div id="mobileJoystick" role="application" aria-label="Виртуальный джойстик">
+    <div class="joystick-ring"></div><div id="mobileStick"></div>
+  </div>
+  <button id="mobileRun" type="button" aria-label="Бег"><span class="mobile-run-icon">⇧</span><span data-i18n="mobileRun">БЕГ</span></button>
+  <button id="mobilePause" type="button" aria-label="Пауза" title="Пауза">Ⅱ</button>
+  <div id="mobileControlsHint"><span data-i18n="mobileMove">ДВИЖЕНИЕ</span><span data-i18n="mobileLook">СВАЙП — ОБЗОР</span></div>
+</div>
+<div id="screamer"><canvas id="scode"></canvas><div class="shake"><canvas id="scode2"></canvas></div><div class="flash"></div></div>
+<div id="start" class="menu-overlay" aria-label="THE CODER main menu">
+  <div class="menu-shell">
+    <section class="menu-main">
+      <div class="menu-topline">
+        <div class="brand-lockup">
+          <div class="brand-mark">TC</div>
+          <div><div class="brand-name">THE CODER</div></div>
+        </div>
+      </div>
+      <div class="hero">
+        <h1>THE <span>CODER</span></h1>
+      </div>
+      <div class="menu-workspace">
+        <nav class="menu-nav" aria-label="Menu">
+          <button class="menu-nav-btn" type="button" data-action="play"><span class="nav-index">01</span><span class="nav-copy"><strong data-i18n="play">ИГРАТЬ</strong><small data-i18n="playDesc">НАЧАТЬ СЕАНС</small></span><span class="nav-symbol">▶</span></button>
+          <button class="menu-nav-btn" type="button" data-page="settings"><span class="nav-index">02</span><span class="nav-copy"><strong data-i18n="settings">НАСТРОЙКИ</strong><small data-i18n="settingsDesc">ИЗМЕНИТЬ СИСТЕМУ</small></span><span class="nav-symbol">⌘</span></button>
+          <button class="menu-nav-btn" type="button" data-page="language"><span class="nav-index">03</span><span class="nav-copy"><strong data-i18n="language">ЯЗЫК</strong><small data-i18n="languageDesc">ВЫБРАТЬ ИНТЕРФЕЙС</small></span><span class="nav-symbol">文</span></button>
+          <button class="menu-nav-btn" type="button" data-page="authors"><span class="nav-index">04</span><span class="nav-copy"><strong data-i18n="authors">АВТОРЫ</strong><small data-i18n="authorsDesc">КТО СОЗДАЛ ЭТОТ МИР</small></span><span class="nav-symbol">◈</span></button>
+          <button class="menu-nav-btn" type="button" data-page="multiplayer"><span class="nav-index">05</span><span class="nav-copy"><strong data-i18n="multiplayer">МУЛЬТИПЛЕЕР</strong><small data-i18n="multiplayerDesc">ИГРАТЬ С ДРУЗЬЯМИ</small></span><span class="nav-symbol">⌁</span></button>
+        </nav>
+        <div class="page-card">
+          <section class="page-content active" data-page-content="home">
+            <p class="page-kicker" data-i18n="welcomeKicker">СЕАНС ГОТОВ К ЗАПУСКУ</p>
+            <h2 data-i18n="welcomeTitle">ТЫ ВХОДИШЬ В СИСТЕМУ.</h2>
+            <p class="page-description" data-i18n="welcomeText">Исследуй бесконечное пространство из строк кода. Следи за сигналами, слушай тишину и не позволяй сущности подойти слишком близко.</p>
+            <div class="home-metrics">
+              <div class="metric"><span data-i18n="worldMetric">СРЕДА</span><strong data-i18n="worldValue">ЧЁРНЫЙ КОД</strong></div>
+              <div class="metric"><span data-i18n="threatMetric">УГРОЗА</span><strong data-i18n="threatValue">НЕИЗВЕСТНА</strong></div>
+            </div>
+            <button class="play-button" type="button" data-action="play"><span class="play-icon">▶</span><span data-i18n="startSession">НАЧАТЬ СЕАНС</span><span>↗</span></button>
+          </section>
+          <section class="page-content" data-page-content="settings">
+            <p class="page-kicker" data-i18n="settingsKicker">SYSTEM / CONFIG</p>
+            <h2 data-i18n="settingsTitle">НАСТРОЙКИ СИСТЕМЫ</h2>
+            <div class="setting-list">
+              <div class="setting-row"><label for="qualitySelect" data-i18n="renderQuality">Качество рендера</label><select id="qualitySelect"><option value="low" data-i18n="qualityLow">Низкое</option><option value="medium" data-i18n="qualityMedium" selected>Среднее</option><option value="high" data-i18n="qualityHigh">Высокое</option><option value="ultra" data-i18n="qualityUltra">Ультра</option></select></div>
+              <div class="setting-row"><label for="displaySelect" data-i18n="displayMode">Режим дисплея</label><select id="displaySelect"><option value="window" data-i18n="windowed">Оконный</option><option value="fullscreen" data-i18n="fullscreen">Полный экран</option></select></div>
+              <div class="setting-row"><label for="volumeSlider" data-i18n="volume">Громкость</label><div class="volume-control"><input id="volumeSlider" type="range" min="0" max="100" value="55" aria-label="Volume"><output id="volumeValue" class="volume-value">55%</output></div></div>
+              <div class="setting-row"><label for="languageSelect" data-i18n="interfaceLanguage">Язык интерфейса</label><select id="languageSelect"><option value="ru">Русский</option><option value="en">English</option><option value="uk">Українська</option><option value="pl">Polski</option><option value="sv">Svenska</option></select></div>
+            </div>
+            <p class="setting-note" data-i18n="settingsNote">Настройки качества применяются сразу. Полный экран может потребовать разрешения браузера.</p>
+            <button class="page-back" type="button" data-page="home" data-i18n="back">← НАЗАД</button>
+          </section>
+          <section class="page-content" data-page-content="language">
+            <p class="page-kicker" data-i18n="languageKicker">SYSTEM / LANGUAGE</p>
+            <h2 data-i18n="languageTitle">ВЫБЕРИ СВОЙ ЯЗЫК</h2>
+            <p class="page-description" data-i18n="languageText">Язык интерфейса можно сменить в любой момент. Выбери один из пяти вариантов.</p>
+            <div class="language-grid">
+              <button class="language-option active" type="button" data-lang="ru"><span>🇷🇺</span>Русский</button>
+              <button class="language-option" type="button" data-lang="en"><span>🇬🇧</span>English</button>
+              <button class="language-option" type="button" data-lang="uk"><span>🇺🇦</span>Українська</button>
+              <button class="language-option" type="button" data-lang="pl"><span>🇵🇱</span>Polski</button>
+              <button class="language-option" type="button" data-lang="sv"><span>🇸🇪</span>Svenska</button>
+            </div>
+            <button class="page-back" type="button" data-page="home" data-i18n="back">← НАЗАД</button>
+          </section>
+          <section class="page-content" data-page-content="authors">
+            <p class="page-kicker" data-i18n="authorsKicker">CREDITS / 001</p>
+            <h2 data-i18n="authorsTitle">СОЗДАТЕЛИ ПРОЕКТА</h2>
+            <p class="page-description" data-i18n="authorsText">Люди и ИИ-инструменты, участвовавшие в создании THE CODER.</p>
+            <div class="author-list">
+              <div class="author-card"><div class="author-avatar">BB</div><div><div class="author-name">Богдан Бондаренко</div><div class="author-role" data-i18n="creatorRole">Автор проекта</div></div></div>
+              <div class="author-card"><div class="author-avatar">DS</div><div><div class="author-name">DeepSeek</div><div class="author-role" data-i18n="aiRole">ИИ-ассистент</div></div></div>
+              <div class="author-card"><div class="author-avatar">GPT</div><div><div class="author-name">ChatGPT</div><div class="author-role" data-i18n="aiRole">ИИ-ассистент</div></div></div>
+            </div>
+            <button class="page-back" type="button" data-page="home" data-i18n="back">← НАЗАД</button>
+          </section>
+          <section class="page-content" data-page-content="multiplayer">
+            <div class="mp-lobby-shell">
+              <div class="mp-lobby-banner"><div><div class="mp-lobby-eyebrow" data-i18n="mpLobbyEyebrow">NETWORK / PRIVATE ACCESS</div><h2 class="mp-lobby-title" data-i18n="mpTitle">CODE HUB / ЛОББИ</h2></div><div class="mp-lobby-live">● <span data-i18n="mpLobbyOnline">СЕТЬ ГОТОВА</span></div></div>
+              <div class="mp-code-chamber" aria-label="Цифровой прямоугольный зал"><div class="mp-code-rain" aria-hidden="true"><span>01001101 01010000 11001010 01001000 10101010 00110011  CODE::ROOM::LINK  01011100 00100101 11001010 10101010</span><span>if(player.connected){lobby.enter();} while(signal){listen();} 0x00FF41 01010101  ACCESS_GRANTED  root@void:/hub</span><span>ROOM_ID // PLAYER_01 // PLAYER_02 // PLAYER_03 // PLAYER_04 // MAP_LOADING // WAITING_FOR_SIGNAL</span></div><div class="mp-chamber-side">ROOM://CODE_HUB<br>STATUS: ENCRYPTED<br>PLAYERS: 01—04</div><div class="mp-chamber-core"><b>THE CODER</b><small data-i18n="mpLobbySub">ЦИФРОВОЕ ЛОББИ / 4 СЛОТА</small></div><div class="mp-chamber-side">SIGNAL: <span id="mpSignalState">STABLE</span><br>MAP: NOT LOADED<br>MODE: CO-OP</div></div>
+              <div id="mpHallView" class="mp-view">
+                <div class="mp-section-head"><span data-i18n="mpChoosePc">ВЫБЕРИ КОМПЬЮТЕР</span><small data-i18n="mpFourTerminals">4 ТЕРМИНАЛА / 4 СЛОТА</small></div>
+                <div class="mp-computer-grid">
+                  <button class="mp-pc" type="button" data-computer-slot="1"><span class="mp-pc-icon">▣</span><span class="mp-pc-copy"><strong>PC-01 / HOST</strong><small data-i18n="mpPcCreateHint">Создать комнату или изменить настройки</small></span><span class="mp-pc-status">READY</span></button>
+                  <button class="mp-pc" type="button" data-computer-slot="2"><span class="mp-pc-icon">▣</span><span class="mp-pc-copy"><strong>PC-02 / LINK</strong><small data-i18n="mpPcJoinHint">Подключиться к друзьям по коду</small></span><span class="mp-pc-status">ONLINE</span></button>
+                  <button class="mp-pc" type="button" data-computer-slot="3"><span class="mp-pc-icon">▣</span><span class="mp-pc-copy"><strong>PC-03 / MAP</strong><small data-i18n="mpPcMapHint">Настройки карты и режима</small></span><span class="mp-pc-status">LOCKED</span></button>
+                  <button class="mp-pc" type="button" data-computer-slot="4"><span class="mp-pc-icon">▣</span><span class="mp-pc-copy"><strong>PC-04 / AUDIO</strong><small data-i18n="mpPcAudioHint">Микрофон, веб-камера и шум</small></span><span class="mp-pc-status">READY</span></button>
+                </div>
+                <p class="mp-map-soon" data-i18n="mpMapComingNote">КАРТА: СКОРО БУДЕТ ДОБАВЛЕНА. Сейчас терминалы открывают настройки совместной комнаты.</p>
+              </div>
+              <div id="mpComputerView" class="mp-view" hidden>
+                <div class="mp-terminal-top"><div><div class="mp-terminal-title" data-i18n="mpConfigTitle">НАСТРОЙКА КОМНАТЫ</div><div class="mp-terminal-sub"><span data-i18n="mpTerminalLabel">ТЕРМИНАЛ</span> <span id="mpSelectedPc">PC-01</span> // CODE CONFIG</div></div><button id="mpBackHall" class="mp-back-hall" type="button" data-i18n="mpBackComputers">← К КОМПЬЮТЕРАМ</button></div>
+                <div class="mp-config-grid">
+                  <div class="mp-field"><label for="mpMapSelect" data-i18n="mpMapLabel">КАРТА</label><select id="mpMapSelect"><option value="coming" data-i18n="mpMapSoon">СКОРО БУДЕТ</option></select></div>
+                  <div class="mp-field"><label for="mpMaxPlayers" data-i18n="mpMaxPlayersLabel">МАКСИМУМ ИГРОКОВ</label><select id="mpMaxPlayers"><option value="2">2 PLAYERS</option><option value="3">3 PLAYERS</option><option value="4" selected>4 PLAYERS</option></select></div>
+                  <div class="mp-field"><label for="mpDifficulty" data-i18n="mpDifficultyLabel">СЛОЖНОСТЬ</label><select id="mpDifficulty"><option value="easy" data-i18n="mpEasy">НОРМАЛЬНАЯ / EASY</option><option value="normal" selected data-i18n="mpNormal">СТАНДАРТНАЯ / NORMAL</option><option value="nightmare" data-i18n="mpNightmare">КОШМАР / NIGHTMARE</option></select></div>
+                  <div class="mp-field"><label for="mpName" data-i18n="mpNameLabel">ИМЯ ИГРОКА</label><input id="mpName" type="text" maxlength="16" autocomplete="nickname" placeholder="PLAYER" value="PLAYER"></div>
+                </div>
+                <label class="mp-check-row"><input id="mpMonsterHears" type="checkbox" checked><span data-i18n="mpMonsterHearsLabel">МОНСТР СЛЫШИТ ГОЛОС И БЕЖИТ НА ЗВУК</span></label>
+                <div class="mp-field"><label for="mpRoomInput" data-i18n="mpRoomLabel">КОД КОМНАТЫ</label><div class="mp-code-row"><input id="mpRoomInput" type="text" maxlength="64" autocomplete="off" spellcheck="false" placeholder="TC-XXXXXX"><button id="mpCopy" class="mp-button" type="button" disabled data-i18n="mpCopy">КОПИРОВАТЬ</button></div></div>
+                <div class="mp-actions">
+                  <button id="mpCreate" class="mp-button primary" type="button" data-i18n="mpCreate">＋ СОЗДАТЬ КОМНАТУ</button>
+                  <button id="mpJoin" class="mp-button" type="button" data-i18n="mpJoin">↗ ВОЙТИ ПО КОДУ</button>
+                  <button id="mpLeave" class="mp-button danger" type="button" disabled data-i18n="mpLeave">ОТКЛЮЧИТЬСЯ</button>
+                </div>
+                <div class="mp-media-panel">
+                  <div class="mp-media-head"><span data-i18n="mpMediaTitle">ГОЛОСОВОЙ КАНАЛ / WEBCAM</span><span id="mpMediaLed">● OFFLINE</span></div>
+                  <div class="mp-media-buttons"><button id="mpMicToggle" class="mp-button" type="button" data-i18n="mpMicEnable">🎙 ВКЛЮЧИТЬ МИКРОФОН</button><button id="mpCamToggle" class="mp-button" type="button" data-i18n="mpCamEnable">▣ ВКЛЮЧИТЬ ВЕБ-КАМЕРУ</button></div>
+                  <div id="mpMediaStatus" class="mp-media-status" role="status" aria-live="polite" data-i18n="mpMediaPermissions">Микрофон и камера включаются только после твоего нажатия и разрешения браузера.</div>
+                  <div class="mp-media-lower">
+                    <div class="mp-preview-wrap"><div class="mp-preview-label" data-i18n="mpLocalPreview">ЛОКАЛЬНОЕ ПРЕВЬЮ</div><video id="localPreview" autoplay playsinline muted></video></div>
+                    <div><div class="mp-noise-head"><label for="mpNoiseSensitivity" data-i18n="mpNoiseSensitivity">ЧУВСТВИТЕЛЬНОСТЬ МОНСТРА К ШУМУ</label><output id="mpNoiseValue">55%</output></div><input id="mpNoiseSensitivity" type="range" min="0" max="100" step="1" value="55"><div class="mp-noise-meter"><span id="mpNoiseFill"></span></div><div id="mpNoiseCaption" class="mp-noise-caption" data-i18n="mpNoiseIdle">Шкала реагирует на уровень микрофона. Громкий голос выдаёт твою позицию.</div></div>
+                  </div>
+                </div>
+                <p class="mp-note privacy" data-i18n="mpPrivacyNote">Голос и видео передаются другим игрокам по WebRTC напрямую. Отключи микрофон или камеру кнопкой; выход из комнаты выключает локальные устройства.</p>
+              </div>
+              <div class="mp-state"><div><div class="mp-state-label" data-i18n="mpStatusLabel">СОСТОЯНИЕ СЕТИ</div><div id="mpStatus" role="status" aria-live="polite">НЕ ПОДКЛЮЧЕНО</div></div><strong id="mpPlayerCount">0 / 4</strong></div>
+              <div id="mpRoster" aria-label="Игроки в комнате"><div class="mp-roster-item"><span class="mp-dot"></span><span data-i18n="mpNoPlayers">Комната пока пуста</span></div></div>
+              <p class="mp-note" data-i18n="mpNote">Нужен интернет. Игроки должны открыть опубликованную версию игры. Мультиплеер передаёт позиции игроков через WebRTC.</p>
+            </div>
+          </section>
+        </div>
+      </div>
+      <div class="menu-footer"><span data-i18n="footerText">THE CODER · ПОГРУЖЕНИЕ В ЦИФРОВОЙ КОШМАР</span><span class="footer-lines"><i></i><i></i><i></i></span><span>© 2026</span></div>
+    </section>
+    <aside class="menu-entity" aria-hidden="true">
+      <div class="entity-stage"><div class="entity-ring"></div><div class="entity-reticle"></div></div>
+    </aside>
+  </div>
+</div>
+<div id="mpRemoteMediaLayer" aria-label="Видеопотоки игроков"><div id="mpRemoteMediaGrid" aria-label="Видеопотоки игроков"></div></div>
+<div id="pause"><h1>ПАУЗА</h1><p>ИГРА ОСТАНОВЛЕНА</p><p class="blink">[ НАЖМИ, ЧТОБЫ ПРОДОЛЖИТЬ ]</p></div>
+<div id="error"></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const canvas = $('c'), startEl = $('start'), pauseEl = $('pause'), muteEl = $('mute');
+const touchDevice = !!(('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches));
+if (touchDevice) document.body.classList.add('touch-device');
+const screamerEl = $('screamer'), threatEl = $('threat'), statusEl = $('status'), killsEl = $('kills');
+if (!window.THREE) {
+  $('error').style.display = 'block';
+  $('error').textContent = 'Не удалось загрузить Three.js. Проверь подключение к интернету и перезагрузи страницу.';
+  return;
+}
+
+/* Звук: все эффекты проходят через master, поэтому M действительно отключает весь звук. */
+const Ambient = (() => {
+  let ctx = null, master = null, entityGain = null, muted = false, started = false, clickTimer = 0, volume = 0.22;
+  function init() {
+    if (started) { resume(); return; }
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    ctx = new AudioContextClass();
+    master = ctx.createGain(); master.gain.value = muted ? 0 : volume; master.connect(ctx.destination);
+    const humGain = ctx.createGain(); humGain.gain.value = 0.35; humGain.connect(master);
+    const lowpass = ctx.createBiquadFilter(); lowpass.type = 'lowpass'; lowpass.frequency.value = 220; lowpass.connect(humGain);
+    [55, 55.4].forEach(f => { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f; const g = ctx.createGain(); g.gain.value = 0.35; o.connect(g).connect(lowpass); o.start(); });
+    const humLfo = ctx.createOscillator(); humLfo.frequency.value = 0.06; const humDepth = ctx.createGain(); humDepth.gain.value = 0.12; humLfo.connect(humDepth).connect(humGain.gain); humLfo.start();
+    const chordGain = ctx.createGain(); chordGain.gain.value = 0.055; chordGain.connect(master);
+    [220, 261.63, 329.63, 392].forEach((f, i) => { const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f; const g = ctx.createGain(); g.gain.value = 0.2; const lfo = ctx.createOscillator(); lfo.frequency.value = 0.03 + i * 0.013; const depth = ctx.createGain(); depth.gain.value = 0.12; lfo.connect(depth).connect(g.gain); lfo.start(); o.connect(g).connect(chordGain); o.start(); });
+    entityGain = ctx.createGain(); entityGain.gain.value = 0; entityGain.connect(master);
+    const whisper = ctx.createOscillator(); whisper.type = 'sawtooth'; whisper.frequency.value = 70;
+    const wLfo = ctx.createOscillator(); wLfo.frequency.value = 0.4; const wDepth = ctx.createGain(); wDepth.gain.value = 12; wLfo.connect(wDepth).connect(whisper.frequency);
+    const wLP = ctx.createBiquadFilter(); wLP.type = 'lowpass'; wLP.frequency.value = 180; whisper.connect(wLP).connect(entityGain); whisper.start(); wLfo.start();
+    started = true; resume(); scheduleClick();
+  }
+  function resume() { if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {}); }
+  function scheduleClick() {
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => { if (!muted) playClick(); if (started) scheduleClick(); }, 4500 + Math.random() * 8000);
+  }
+  function playClick() {
+    if (!ctx || !master || muted) return;
+    const now = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain(), bp = ctx.createBiquadFilter();
+    o.type = 'square'; o.frequency.value = 1400 + Math.random() * 1200; bp.type = 'bandpass'; bp.frequency.value = 2000; bp.Q.value = 4;
+    g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(0.018, now + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+    o.connect(bp).connect(g).connect(master); o.start(now); o.stop(now + 0.1);
+  }
+  function setEntity(level) { if (!entityGain || !ctx) return; entityGain.gain.cancelScheduledValues(ctx.currentTime); entityGain.gain.setTargetAtTime(muted ? 0 : Math.max(0, level) * 0.14, ctx.currentTime, 0.12); }
+  function scream() {
+    if (!ctx || !master || muted) return;
+    const now = ctx.currentTime, out = ctx.createGain(), limiter = ctx.createDynamicsCompressor();
+    out.gain.setValueAtTime(0.0001, now); out.gain.linearRampToValueAtTime(0.32, now + 0.04); out.gain.setValueAtTime(0.28, now + 0.7); out.gain.exponentialRampToValueAtTime(0.0001, now + 1.45);
+    limiter.threshold.value = -8; limiter.knee.value = 2; limiter.ratio.value = 12; limiter.attack.value = 0.003; limiter.release.value = 0.18; out.connect(limiter).connect(master);
+    [110, 116.54, 155.56, 164.81, 233.08, 246.94].forEach((f, i) => { const o = ctx.createOscillator(), g = ctx.createGain(), det = ctx.createOscillator(), dg = ctx.createGain(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f, now); o.frequency.exponentialRampToValueAtTime(f * 1.06, now + 1.2); g.gain.value = 0.12; det.frequency.value = 7 + i * 1.3; dg.gain.value = 5; det.connect(dg).connect(o.detune); o.connect(g).connect(out); det.start(now); o.start(now); o.stop(now + 1.45); det.stop(now + 1.45); });
+    const length = Math.floor(ctx.sampleRate * 1.35), buffer = ctx.createBuffer(1, length, ctx.sampleRate), data = buffer.getChannelData(0);
+    for (let i = 0; i < length; i++) data[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource(), bp = ctx.createBiquadFilter(), ng = ctx.createGain(); noise.buffer = buffer; bp.type = 'bandpass'; bp.frequency.setValueAtTime(2200, now); bp.frequency.exponentialRampToValueAtTime(450, now + 1.2); bp.Q.value = 3; ng.gain.value = 0.22; noise.connect(bp).connect(ng).connect(out); noise.start(now); noise.stop(now + 1.35);
+    const sub = ctx.createOscillator(), sg = ctx.createGain(); sub.type = 'sine'; sub.frequency.setValueAtTime(75, now); sub.frequency.exponentialRampToValueAtTime(24, now + 0.85); sg.gain.setValueAtTime(0.45, now); sg.gain.exponentialRampToValueAtTime(0.0001, now + 0.9); sub.connect(sg).connect(out); sub.start(now); sub.stop(now + 0.95);
+  }
+  function setVolume(value) { volume = Math.max(0, Math.min(1, Number(value) || 0)); if (master && ctx && !muted) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.05); }
+  function toggle() { muted = !muted; if (master && ctx) master.gain.setTargetAtTime(muted ? 0 : volume, ctx.currentTime, 0.04); return muted; }
+  return { init, resume, setEntity, scream, toggle, setVolume };
+})();
+
+/* Сцена */
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, touchDevice ? 1.15 : 1.5)); renderer.setSize(innerWidth, innerHeight); renderer.setClearColor(0x000000, 1);
+const scene = new THREE.Scene(); scene.fog = new THREE.FogExp2(0x000000, 0.027);
+const BASE_FOV = 70, camera = new THREE.PerspectiveCamera(BASE_FOV, innerWidth / innerHeight, 0.1, 600); camera.position.set(0, 4, 0);
+const LINES = [
+  'if(anon){access(true);}', 'while(true){hack();}', '0x1F 0x00 0xFF 0xAB 0xDE', 'sudo rm -rf /limits',
+  'const ghost=()=>void 0;', '01001000 01001001 00100001', 'root@void:~# ./exploit --deep', 'SELECT * FROM freedom WHERE id=0;',
+  "function mask(){return '?';}", 'for(i=0;i<Infinity;i++){scan();}', 'class Unknown extends Void {}', '>> decrypting reality ... ok',
+  'if(eyes.see(you)){run();}', "let x='01010101'; x^=0xFF;", 'access.denied = false;', 'trace(0) => [hidden] => 0x00',
+  'buffer.overflow(secret);', 'xor(a,b) { return a^b^0x0F; }', 'netmask: 255.255.0.0 :: ghost', '0b1010_1111_0000_1111 >> 4',
+  'printf("%s", whoami); // ?', 'def crack(x): return x[::-1]', 'import shadow as anon', 'encrypt(mask, key=void)',
+  'mem[0xDEADBEEF] = null', 'loop(forever){hide(trace)}', 'assert(identity == none);', 'syscall(0x1337, anon)',
+  'void main(){ while(1); }', '0xCAFEBABE 0xDEADBEEF', "git commit -m 'no trace'", 'ssh anon@127.0.0.1 -p 0',
+  'packet.drop(source);', 'if(truth){redact();}', 'signal(jam, freq=0x0F);', 'shell:/> whoami', 'unknown@void:# null -v', 'crypto.hash(mask, salt=0)'
+];
+function makeTex(text) {
+  const fs = 26, pad = 12, measure = document.createElement('canvas').getContext('2d'); measure.font = fs + 'px "Courier New",monospace';
+  const c = document.createElement('canvas'); c.width = Math.max(60, Math.ceil(measure.measureText(text).width) + pad * 2); c.height = fs + pad * 2;
+  const g = c.getContext('2d'); g.font = fs + 'px "Courier New",monospace'; g.fillStyle = '#0f0'; g.textBaseline = 'middle'; g.shadowColor = '#00ff00'; g.shadowBlur = 5; g.fillText(text, pad, c.height / 2);
+  const tex = new THREE.CanvasTexture(c); tex.minFilter = THREE.LinearFilter; return { tex, ratio: c.width / c.height };
+}
+const TEX = LINES.map(makeTex), MATS = TEX.map(o => new THREE.SpriteMaterial({ map: o.tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.85, fog: true }));
+const WORLD = 300, worldGroup = new THREE.Group(); scene.add(worldGroup);
+const sprites = [];
+for (let i = 0; i < (touchDevice ? 650 : 1200); i++) {
+  const idx = (Math.random() * MATS.length) | 0, spr = new THREE.Sprite(MATS[idx]), h = 0.9 + Math.random() * 1.1;
+  spr.scale.set(h * TEX[idx].ratio, h, 1); spr.position.set((Math.random() - .5) * WORLD, -8 + Math.random() * 120, (Math.random() - .5) * WORLD);
+  spr.userData = { baseY: spr.position.y, phase: Math.random() * 6.28, speed: .2 + Math.random() * .4 }; worldGroup.add(spr); sprites.push(spr);
+}
+const STREAM_COUNT = touchDevice ? 900 : 2400, particlePos = new Float32Array(STREAM_COUNT * 3), particleVel = new Float32Array(STREAM_COUNT);
+for (let i = 0; i < STREAM_COUNT; i++) { particlePos[i*3] = (Math.random()-.5)*WORLD; particlePos[i*3+1] = Math.random()*120-8; particlePos[i*3+2] = (Math.random()-.5)*WORLD; particleVel[i] = 3 + Math.random()*8; }
+const pGeo = new THREE.BufferGeometry(); pGeo.setAttribute('position', new THREE.BufferAttribute(particlePos, 3));
+const pMat = new THREE.PointsMaterial({ color: 0x00ff44, size: .28, transparent: true, opacity: .7, blending: THREE.AdditiveBlending, depthWrite: false, fog: true, sizeAttenuation: true });
+worldGroup.add(new THREE.Points(pGeo, pMat));
+const panels = [], panelMats = TEX.slice(0, 8).map(o => new THREE.MeshBasicMaterial({ map: o.tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: .6, fog: true, side: THREE.DoubleSide }));
+for (let i = 0; i < (touchDevice ? 12 : 24); i++) { const mesh = new THREE.Mesh(new THREE.PlaneGeometry(16, 2), panelMats[(Math.random()*panelMats.length)|0]); mesh.position.set((Math.random()-.5)*WORLD*.9, 6+Math.random()*90, (Math.random()-.5)*WORLD*.9); mesh.rotation.y = Math.random()*Math.PI*2; mesh.userData = { sp: .02+Math.random()*.06, ph: Math.random()*6.28 }; worldGroup.add(mesh); panels.push(mesh); }
+const grid = new THREE.GridHelper(WORLD, 60, 0x004400, 0x001100); grid.position.y = -8; worldGroup.add(grid);
+const faceCanvas = document.createElement('canvas'); faceCanvas.width = faceCanvas.height = 256;
+{ const g = faceCanvas.getContext('2d'); g.strokeStyle = '#0f0'; g.lineWidth = 4; g.shadowColor = '#0f0'; g.shadowBlur = 18; g.beginPath(); g.moveTo(128,24); g.bezierCurveTo(70,24,50,80,54,130); g.bezierCurveTo(58,190,90,232,128,236); g.bezierCurveTo(166,232,198,190,202,130); g.bezierCurveTo(206,80,186,24,128,24); g.stroke(); g.beginPath(); g.arc(104,120,12,Math.PI*1.1,Math.PI*1.9); g.stroke(); g.beginPath(); g.arc(152,120,12,Math.PI*1.1,Math.PI*1.9); g.stroke(); g.beginPath(); g.moveTo(104,168); g.quadraticCurveTo(128,188,152,168); g.stroke(); }
+const anonSpr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(faceCanvas), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending })); anonSpr.scale.set(22,22,1); anonSpr.position.set(0,16,-100); worldGroup.add(anonSpr);
+
+/* Монстр: 8 анимированных лап. Он скрыт вне активной фазы. */
+const spiderGroup = new THREE.Group(); spiderGroup.visible = false; scene.add(spiderGroup);
+const legMat = new THREE.LineBasicMaterial({ color: 0x00ff44, transparent: true, opacity: 0, fog: true });
+const jointMat = new THREE.PointsMaterial({ color: 0x88ff88, size: .6, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, fog: true, sizeAttenuation: true });
+const LEG_COUNT = 8, legs = [], attachAngles = [Math.PI*.15, Math.PI*.30, Math.PI*.70, Math.PI*.85, Math.PI*1.15, Math.PI*1.30, Math.PI*1.70, Math.PI*1.85];
+for (let i = 0; i < LEG_COUNT; i++) { const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(12), 3)); const line = new THREE.Line(geo, legMat); line.userData = { angle: attachAngles[i], phase: i*.8, length: 10+Math.random()*3 }; spiderGroup.add(line); legs.push(line); }
+const jointGeo = new THREE.BufferGeometry(); jointGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(LEG_COUNT*2*3), 3)); spiderGroup.add(new THREE.Points(jointGeo, jointMat));
+const ent = { active:false, phase:'idle', timer:0, level:0, lookTime:0, nextSpawn:5, screamCooldown:0, rearUp:0, totalKills:0, targetId:null, victimId:null };
+const state = { keys:Object.create(null), yaw:0, pitch:0, locked:false, started:false, paused:false, mobileMoveX:0, mobileMoveY:0, mobileRunning:false, vel:new THREE.Vector3(), bobT:0, bobAmp:0, roll:0, fov:BASE_FOV };
+const fwd = new THREE.Vector3(), right = new THREE.Vector3(), move = new THREE.Vector3(), toEntity = new THREE.Vector3(), forwardDir = new THREE.Vector3();
+
+/* Скример: короткий, затем монстр гарантированно завершает атаку и планирует новый спавн. */
+const scode = $('scode'), scode2 = $('scode2'); let scodeCtx, scode2Ctx, scodeW = 0, scodeH = 0;
+const screamer = { active:false, timer:0, duration:1.8, columns:[] };
+function sizeScreamerCanvas() { scodeW = innerWidth; scodeH = innerHeight; scode.width = Math.max(1, scodeW); scode.height = Math.max(1, scodeH); scode2.width = Math.max(1, scodeW); scode2.height = Math.max(1, scodeH); scodeCtx = scode.getContext('2d'); scode2Ctx = scode2.getContext('2d'); }
+function startScreamer() {
+  if (screamer.active) return;
+  screamer.active = true; screamer.timer = 0; sizeScreamerCanvas(); screamer.columns = [];
+  const colW = 14, cols = Math.max(50, Math.floor(scodeW / colW));
+  for (let i = 0; i < cols; i++) { const chars = [], rows = Math.ceil(scodeH/18)+20; for (let j=0; j<rows; j++) chars.push(LINES[(Math.random()*LINES.length)|0].slice(0, Math.max(2, Math.floor(Math.random()*14)))); screamer.columns.push({ x:i*colW+2, chars, offset:Math.random()*scodeH, speed:200+Math.random()*400 }); }
+  screamerEl.classList.add('on'); Ambient.scream();
+}
+function endScreamer() { screamer.active = false; screamerEl.classList.remove('on'); }
+function drawScreamer(dt) {
+  if (!screamer.active || !scodeCtx || !scode2Ctx) return;
+  screamer.timer += dt;
+  scodeCtx.fillStyle = 'rgba(0,0,0,.35)'; scodeCtx.fillRect(0,0,scodeW,scodeH); scodeCtx.font = 'bold 16px "Courier New",monospace'; scodeCtx.textBaseline = 'top';
+  for (const col of screamer.columns) { col.offset += col.speed*dt*(1+screamer.timer*1.1); const y = -(col.offset % (col.chars.length*18)); for (let j=0; j<col.chars.length; j++) { const yy=y+j*18; if (yy>-20 && yy<scodeH) { scodeCtx.fillStyle = `rgba(0,255,0,${.5+Math.random()*.5})`; scodeCtx.fillText(col.chars[j],col.x,yy); } } }
+  scode2Ctx.clearRect(0,0,scodeW,scodeH); scode2Ctx.font = 'bold 16px "Courier New",monospace'; scode2Ctx.textBaseline='top'; scode2Ctx.globalCompositeOperation='lighter';
+  for (const col of screamer.columns) { const y=-(col.offset%(col.chars.length*18)); for (let j=0;j<col.chars.length;j++) { const yy=y+j*18; if (yy>-20 && yy<scodeH) { scode2Ctx.fillStyle=`rgba(255,0,0,${.2+Math.random()*.3})`; scode2Ctx.fillText(col.chars[j],col.x+3,yy+3); } } }
+  scode2Ctx.globalCompositeOperation='source-over';
+  if (screamer.timer >= screamer.duration) endScreamer();
+}
+
+function teleportSpider(distanceMin=38, distanceMax=58, target=null) {
+  const ang = Math.random()*Math.PI*2, dist = distanceMin + Math.random()*(distanceMax-distanceMin);
+  const anchor = target || {x:camera.position.x,z:camera.position.z};
+  spiderGroup.position.set((Number(anchor.x)||0) + Math.cos(ang)*dist, 0, (Number(anchor.z)||0) + Math.sin(ang)*dist);
+  spiderGroup.rotation.y = Math.atan2((Number(anchor.x)||0)-spiderGroup.position.x, (Number(anchor.z)||0)-spiderGroup.position.z);
+}
+function scheduleNextSpawn(min=6, max=11) { ent.active = false; ent.phase = 'idle'; ent.timer = 0; ent.level = 0; ent.lookTime = 0; ent.rearUp = 0; ent.nextSpawn = min + Math.random()*(max-min); spiderGroup.visible = false; legMat.opacity = 0; jointMat.opacity = 0; Ambient.setEntity(0); threatEl.style.opacity = '0'; statusEl.textContent = tr('vanished'); }
+function spawnSpider() {
+  const target = resolveMonsterTarget() || {id:mp.peer && mp.peer.id ? mp.peer.id : 'local-player',x:camera.position.x,z:camera.position.z};
+  ent.targetId=target.id; ent.victimId=null;
+  teleportSpider(40, 58, target); spiderGroup.visible = true; ent.active = true; ent.phase = 'spawn'; ent.timer = 0; ent.level = 0; ent.lookTime = 0; ent.rearUp = 0;
+  legMat.opacity = 0; jointMat.opacity = 0; statusEl.textContent = tr('nearby');
+}
+function finishKill() {
+  ent.totalKills++; killsEl.textContent = String(ent.totalKills);
+  ent.screamCooldown = 2.0; ent.victimId=null; ent.targetId=null;
+  teleportSpider(65, 95); scheduleNextSpawn(6, 11);
+}
+function updateLegs(t, speedFactor, rearUp) {
+  const bodyY = 6 + rearUp*4 + Math.sin(t*3)*.2, jointArr = jointGeo.attributes.position.array;
+  for (let i=0;i<LEG_COUNT;i++) {
+    const leg=legs[i], u=leg.userData, a=u.angle, reach=u.length, phase=t*(4+speedFactor*14)+u.phase, step=Math.sin(phase);
+    const attachX=Math.cos(a)*.8, attachZ=Math.sin(a)*.8, attachY=bodyY;
+    const kneeRadius=reach*.55, kneeX=Math.cos(a)*(kneeRadius+.8), kneeZ=Math.sin(a)*(kneeRadius+.8), kneeY=bodyY+2.5+step*.6*(1+rearUp)+rearUp*2;
+    const footRadius=reach*.85, stepOffset=step*.9, footX=Math.cos(a)*footRadius+Math.cos(a+Math.PI/2)*stepOffset, footZ=Math.sin(a)*footRadius+Math.sin(a+Math.PI/2)*stepOffset, footY=-7.9+Math.max(0,Math.sin(phase))*.9;
+    const tipX=footX+Math.cos(a)*.8, tipZ=footZ+Math.sin(a)*.8, tipY=footY-.15, arr=leg.geometry.attributes.position.array;
+    arr[0]=attachX; arr[1]=attachY; arr[2]=attachZ; arr[3]=kneeX; arr[4]=kneeY; arr[5]=kneeZ; arr[6]=footX; arr[7]=footY; arr[8]=footZ; arr[9]=tipX; arr[10]=tipY; arr[11]=tipZ; leg.geometry.attributes.position.needsUpdate=true;
+    jointArr[i*6]=kneeX; jointArr[i*6+1]=kneeY; jointArr[i*6+2]=kneeZ; jointArr[i*6+3]=footX; jointArr[i*6+4]=footY; jointArr[i*6+5]=footZ;
+  }
+  jointGeo.attributes.position.needsUpdate=true;
+}
+function updateSpider(dt,t) {
+  ent.screamCooldown=Math.max(0,ent.screamCooldown-dt);
+  if (!state.started || state.paused) { Ambient.setEntity(0); return; }
+  /* In a room, the host owns the monster. Other clients mirror its world position and attack phase. */
+  if (mp.active && !mp.isHost) {
+    const snap=mp.monsterSnapshot;
+    if (!snap) { spiderGroup.visible=false; return; }
+    spiderGroup.position.set(Number(snap.x)||0,Number(snap.y)||0,Number(snap.z)||0);
+    spiderGroup.rotation.y=Number(snap.yaw)||0;
+    spiderGroup.visible=!!snap.visible;
+    ent.active=!!snap.active; ent.phase=snap.phase||'idle'; ent.level=Number(snap.level)||0; ent.rearUp=Number(snap.rearUp)||0;
+    ent.targetId=snap.targetId||null; ent.victimId=snap.victimId||null; ent.totalKills=Number(snap.totalKills)||0; killsEl.textContent=String(ent.totalKills);
+    legMat.opacity=Number(snap.legOpacity)||0; jointMat.opacity=Number(snap.jointOpacity)||0;
+    if (ent.victimId===mp.peer?.id && ent.phase==='killing' && !screamer.active) { statusEl.textContent=tr('lost'); startScreamer(); }
+    else statusEl.textContent=ent.active?(ent.phase==='killing'?tr('lost'):tr('nearby')):tr('searching');
+    threatEl.style.opacity=String(ent.level*.86); Ambient.setEntity(ent.level);
+    if (ent.active) updateLegs(t,Number(snap.speedFactor)||0,ent.rearUp);
+    return;
+  }
+  const voiceTarget=resolveMonsterTarget();
+  const localId=mp.peer && mp.peer.id ? mp.peer.id : 'local-player';
+  const target=voiceTarget || {id:localId,x:camera.position.x,z:camera.position.z};
+  const voiceHeard=!!voiceTarget;
+  ent.targetId=target.id;
+  if (!ent.active) {
+    spiderGroup.visible=false; ent.nextSpawn-=dt;
+    if ((voiceHeard || ent.nextSpawn<=0) && ent.screamCooldown<=0 && !screamer.active) spawnSpider();
+    return;
+  }
+  ent.timer+=dt;
+  const targetPosition=new THREE.Vector3(Number(target.x)||0,camera.position.y,Number(target.z)||0);
+  camera.getWorldDirection(forwardDir); toEntity.copy(spiderGroup.position).sub(targetPosition); let dist=toEntity.length(); toEntity.normalize();
+  const dot=(target.id===localId)?forwardDir.dot(toEntity):0;
+  const targetOp=ent.phase==='spawn'?.72:1; legMat.opacity+=(targetOp-legMat.opacity)*Math.min(1,dt*5); jointMat.opacity+=(targetOp-jointMat.opacity)*Math.min(1,dt*5);
+  const pulse=.62+Math.sin(t*4)*.18+(1-Math.min(dist/60,1))*.35; legMat.color.setRGB(0,pulse,0); jointMat.color.setRGB(.45*pulse,pulse,.45*pulse);
+  ent.level=Math.max(0,Math.min(1,1-dist/70)); Ambient.setEntity(ent.level); threatEl.style.opacity=String(ent.level*.86);
+  if (ent.phase==='spawn' && ent.timer>1.0) { ent.phase='approach'; statusEl.textContent=tr('approach'); }
+  let speedFactor=0;
+  if (ent.phase==='approach' && !screamer.active) {
+    const toward=new THREE.Vector3(targetPosition.x-spiderGroup.position.x,0,targetPosition.z-spiderGroup.position.z); if (toward.lengthSq()>0.0001) toward.normalize();
+    const difficultyBoost=mp.active?(mp.settings.difficulty==='nightmare'?1.45:mp.settings.difficulty==='easy'?.8:1):1;
+    const speed=(voiceHeard?25:15)+(1-Math.min(dist/60,1))*(voiceHeard?12:10);
+    spiderGroup.position.addScaledVector(toward,speed*difficultyBoost*dt); speedFactor=voiceHeard?1.7:1;
+    spiderGroup.rotation.y=Math.atan2(targetPosition.x-spiderGroup.position.x,targetPosition.z-spiderGroup.position.z);
+    ent.rearUp=dist<22?Math.min(1,ent.rearUp+dt*2.5):Math.max(0,ent.rearUp-dt);
+    if (!voiceHeard && target.id===localId && dot>.94 && dist>26) { ent.lookTime+=dt; if (ent.lookTime>3.5) { scheduleNextSpawn(7,12); return; } } else ent.lookTime=Math.max(0,ent.lookTime-dt*.4);
+    const newDist=Math.hypot(targetPosition.x-spiderGroup.position.x,targetPosition.z-spiderGroup.position.z);
+    if (newDist<10.5) {
+      ent.phase='killing'; ent.timer=0; ent.victimId=target.id;
+      if (ent.victimId===localId) { statusEl.textContent=tr('lost'); startScreamer(); }
+    }
+  }
+  if (ent.phase==='killing') {
+    if (ent.victimId===localId) {
+      if (!screamer.active) startScreamer();
+      if (screamer.active && screamer.timer>=screamer.duration) { endScreamer(); finishKill(); }
+    } else if (ent.timer>=screamer.duration) finishKill();
+  }
+  if (ent.active) updateLegs(t,speedFactor+ent.rearUp,ent.rearUp);
+}
+function setPaused(value) {
+  if (!state.started) return;
+  state.paused=value;
+  if (value) { clearMobileJoystick(); endMobileRun(); endLook(); pauseEl.style.display='flex'; if (document.pointerLockElement===canvas) document.exitPointerLock(); statusEl.textContent=tr('paused'); }
+  else { pauseEl.style.display='none'; Ambient.resume(); if (!touchDevice) canvas.requestPointerLock?.(); statusEl.textContent=ent.active?tr('nearby'):tr('searching'); }
+}
+const languageText = {
+  ru: {
+    brandSub:'DIGITAL NIGHTMARE',systemOnline:'СИСТЕМА АКТИВНА',heroOverline:'ВХОД В НЕИЗВЕСТНОСТЬ / 001',mobileRun:'БЕГ',mobileMove:'ДВИЖЕНИЕ',mobileLook:'СВАЙП — ОБЗОР',mobileGameHint:'ДЖОЙСТИК · СВАЙП · БЕГ · ПАУЗА',heroSubtitle:'КОД — ЕДИНСТВЕННЫЙ СВЕТ В БЕСКОНЕЧНОЙ ТЕМНОТЕ. НЕ ОГЛЯДЫВАЙСЯ. ОН УЖЕ ЗНАЕТ, ЧТО ТЫ ЗДЕСЬ.',play:'ИГРАТЬ',playDesc:'НАЧАТЬ СЕАНС',settings:'НАСТРОЙКИ',settingsDesc:'ИЗМЕНИТЬ СИСТЕМУ',language:'ЯЗЫК',languageDesc:'ВЫБРАТЬ ИНТЕРФЕЙС',authors:'АВТОРЫ',authorsDesc:'КТО СОЗДАЛ ЭТОТ МИР',welcomeKicker:'СЕАНС ГОТОВ К ЗАПУСКУ',welcomeTitle:'ТЫ ВХОДИШЬ В СИСТЕМУ.',welcomeText:'Исследуй бесконечное пространство из строк кода. Следи за сигналами, слушай тишину и не позволяй сущности подойти слишком близко.',worldMetric:'СРЕДА',worldValue:'ЧЁРНЫЙ КОД',threatMetric:'УГРОЗА',threatValue:'НЕИЗВЕСТНА',startSession:'НАЧАТЬ СЕАНС',settingsKicker:'SYSTEM / CONFIG',settingsTitle:'НАСТРОЙКИ СИСТЕМЫ',renderQuality:'Качество рендера',qualityLow:'Низкое',qualityMedium:'Среднее',qualityHigh:'Высокое',qualityUltra:'Ультра',displayMode:'Режим дисплея',windowed:'Оконный',fullscreen:'Полный экран',volume:'Громкость',interfaceLanguage:'Язык интерфейса',settingsNote:'Качество применяется сразу. Полный экран может потребовать разрешения браузера.',back:'← НАЗАД',languageKicker:'SYSTEM / LANGUAGE',languageTitle:'ВЫБЕРИ СВОЙ ЯЗЫК',languageText:'Язык интерфейса можно сменить в любой момент. Выбери один из пяти вариантов.',authorsKicker:'CREDITS / 001',authorsTitle:'СОЗДАТЕЛИ ПРОЕКТА',authorsText:'Люди и ИИ-инструменты, участвовавшие в создании THE CODER.',creatorRole:'Автор проекта',aiRole:'ИИ-ассистент',footerText:'THE CODER · ПОГРУЖЕНИЕ В ЦИФРОВОЙ КОШМАР',scanning:'СКАНИРОВАНИЕ...',entityName:'НЕОПОЗНАННАЯ СУЩНОСТЬ',entityStatus:'СИГНАЛ НЕСТАБИЛЕН',entityWarning:'ОБЪЕКТ ДВИЖЕТСЯ, ДАЖЕ КОГДА ТЫ НЕ СМОТРИШЬ.',killsLabel:'УБИЙСТВА:',stateLabel:'СОСТОЯНИЕ:',gameHint:'WASD · МЫШЬ · SHIFT — БЕГ · ESC — ПАУЗА · M — ЗВУК',muteOn:'[ ЗВУК: ВКЛ ]',muteOff:'[ ЗВУК: ВЫКЛ ]',paused:'ПАУЗА',searching:'ПОИСК',nearby:'СУЩНОСТЬ РЯДОМ',approach:'ОНА ИДЁТ К ТЕБЕ',lost:'СИГНАЛ ПОТЕРЯН',vanished:'СЛЕДЫ ИСЧЕЗЛИ',waiting:'ОЖИДАНИЕ'
+  },
+  en: {
+    brandSub:'DIGITAL NIGHTMARE',systemOnline:'SYSTEM ONLINE',heroOverline:'ENTER THE UNKNOWN / 001',mobileRun:'RUN',mobileMove:'MOVE',mobileLook:'SWIPE TO LOOK',mobileGameHint:'JOYSTICK · SWIPE · RUN · PAUSE',heroSubtitle:'CODE IS THE ONLY LIGHT IN ENDLESS DARKNESS. DO NOT LOOK BACK. IT ALREADY KNOWS YOU ARE HERE.',play:'PLAY',playDesc:'BEGIN SESSION',settings:'SETTINGS',settingsDesc:'CHANGE SYSTEM',language:'LANGUAGE',languageDesc:'CHOOSE INTERFACE',authors:'CREDITS',authorsDesc:'WHO BUILT THIS WORLD',welcomeKicker:'SESSION READY TO BEGIN',welcomeTitle:'YOU ARE ENTERING THE SYSTEM.',welcomeText:'Explore an endless space made of code. Watch the signals, listen to the silence, and never let the entity get too close.',worldMetric:'ENVIRONMENT',worldValue:'BLACK CODE',threatMetric:'THREAT',threatValue:'UNKNOWN',startSession:'START SESSION',settingsKicker:'SYSTEM / CONFIG',settingsTitle:'SYSTEM SETTINGS',renderQuality:'Render quality',qualityLow:'Low',qualityMedium:'Medium',qualityHigh:'High',qualityUltra:'Ultra',displayMode:'Display mode',windowed:'Windowed',fullscreen:'Fullscreen',volume:'Volume',interfaceLanguage:'Interface language',settingsNote:'Quality applies immediately. Fullscreen may require browser permission.',back:'← BACK',languageKicker:'SYSTEM / LANGUAGE',languageTitle:'CHOOSE YOUR LANGUAGE',languageText:'You can change the interface language at any time. Choose one of five options.',authorsKicker:'CREDITS / 001',authorsTitle:'PROJECT CREDITS',authorsText:'People and AI tools involved in creating THE CODER.',creatorRole:'Project creator',aiRole:'AI assistant',footerText:'THE CODER · DESCENT INTO A DIGITAL NIGHTMARE',scanning:'SCANNING...',entityName:'UNKNOWN ENTITY',entityStatus:'SIGNAL UNSTABLE',entityWarning:'THE OBJECT MOVES EVEN WHEN YOU ARE NOT LOOKING.',killsLabel:'KILLS:',stateLabel:'STATUS:',gameHint:'WASD · MOUSE · SHIFT — RUN · ESC — PAUSE · M — SOUND',muteOn:'[ SOUND: ON ]',muteOff:'[ SOUND: OFF ]',paused:'PAUSED',searching:'SEARCHING',nearby:'ENTITY NEARBY',approach:'IT IS COMING FOR YOU',lost:'SIGNAL LOST',vanished:'TRACES VANISHED',waiting:'WAITING'
+  },
+  uk: {
+    brandSub:'ЦИФРОВИЙ КОШМАР',systemOnline:'СИСТЕМА АКТИВНА',heroOverline:'ВХІД У НЕВІДОМЕ / 001',mobileRun:'БІГ',mobileMove:'РУХ',mobileLook:'СВАЙП — ОГЛЯД',mobileGameHint:'ДЖОЙСТИК · СВАЙП · БІГ · ПАУЗА',heroSubtitle:'КОД — ЄДИНЕ СВІТЛО В НЕСКІНЧЕННІЙ ТЕМРЯВІ. НЕ ОЗИРАЙСЯ. ВІН ВЖЕ ЗНАЄ, ЩО ТИ ТУТ.',play:'ГРАТИ',playDesc:'ПОЧАТИ СЕАНС',settings:'НАЛАШТУВАННЯ',settingsDesc:'ЗМІНИТИ СИСТЕМУ',language:'МОВА',languageDesc:'ОБРАТИ ІНТЕРФЕЙС',authors:'АВТОРИ',authorsDesc:'ХТО СТВОРИВ ЦЕЙ СВІТ',welcomeKicker:'СЕАНС ГОТОВИЙ ДО ЗАПУСКУ',welcomeTitle:'ТИ ВХОДИШ ДО СИСТЕМИ.',welcomeText:'Досліджуй нескінченний простір рядків коду. Стеж за сигналами, слухай тишу й не дозволяй сутності підійти надто близько.',worldMetric:'СЕРЕДОВИЩЕ',worldValue:'ЧОРНИЙ КОД',threatMetric:'ЗАГРОЗА',threatValue:'НЕВІДОМА',startSession:'ПОЧАТИ СЕАНС',settingsKicker:'SYSTEM / CONFIG',settingsTitle:'НАЛАШТУВАННЯ СИСТЕМИ',renderQuality:'Якість рендерингу',qualityLow:'Низька',qualityMedium:'Середня',qualityHigh:'Висока',qualityUltra:'Ультра',displayMode:'Режим дисплея',windowed:'Віконний',fullscreen:'На весь екран',volume:'Гучність',interfaceLanguage:'Мова інтерфейсу',settingsNote:'Якість застосовується одразу. Повний екран може потребувати дозволу браузера.',back:'← НАЗАД',languageKicker:'SYSTEM / LANGUAGE',languageTitle:'ОБЕРИ СВОЮ МОВУ',languageText:'Мову інтерфейсу можна змінити будь-коли. Обери один із п’яти варіантів.',authorsKicker:'CREDITS / 001',authorsTitle:'ТВОРЦІ ПРОЄКТУ',authorsText:'Люди та ШІ-інструменти, які брали участь у створенні THE CODER.',creatorRole:'Автор проєкту',aiRole:'ШІ-асистент',footerText:'THE CODER · ЗАНУРЕННЯ В ЦИФРОВИЙ ЖАХ',scanning:'СКАНУВАННЯ...',entityName:'НЕВІДОМА СУТНІСТЬ',entityStatus:'СИГНАЛ НЕСТАБІЛЬНИЙ',entityWarning:'ОБ’ЄКТ РУХАЄТЬСЯ, НАВІТЬ КОЛИ ТИ НЕ ДИВИШСЯ.',killsLabel:'ВБИВСТВА:',stateLabel:'СТАН:',gameHint:'WASD · МИША · SHIFT — БІГ · ESC — ПАУЗА · M — ЗВУК',muteOn:'[ ЗВУК: УВІМК ]',muteOff:'[ ЗВУК: ВИМК ]',paused:'ПАУЗА',searching:'ПОШУК',nearby:'СУТНІСТЬ ПОРУЧ',approach:'ВОНА ЙДЕ ДО ТЕБЕ',lost:'СИГНАЛ ВТРАЧЕНО',vanished:'СЛІДИ ЗНИКЛИ',waiting:'ОЧІКУВАННЯ'
+  },
+  pl: {
+    brandSub:'CYFROWY KOSZMAR',systemOnline:'SYSTEM AKTYWNY',heroOverline:'WEJŚCIE W NIEZNANE / 001',mobileRun:'BIEG',mobileMove:'RUCH',mobileLook:'PRZESUŃ, ABY ROZEJRZEĆ',mobileGameHint:'JOYSTICK · PRZESUŃ · BIEG · PAUZA',heroSubtitle:'KOD TO JEDYNE ŚWIATŁO W NIEKOŃCZĄCEJ SIĘ CIEMNOŚCI. NIE OGLĄDAJ SIĘ. ON JUŻ WIE, ŻE TU JESTEŚ.',play:'GRAJ',playDesc:'ROZPOCZNIJ SESJĘ',settings:'USTAWIENIA',settingsDesc:'ZMIEŃ SYSTEM',language:'JĘZYK',languageDesc:'WYBIERZ INTERFEJS',authors:'TWÓRCY',authorsDesc:'KTO STWORZYŁ TEN ŚWIAT',welcomeKicker:'SESJA GOTOWA DO STARTU',welcomeTitle:'WCHODZISZ DO SYSTEMU.',welcomeText:'Odkrywaj nieskończoną przestrzeń kodu. Obserwuj sygnały, słuchaj ciszy i nie pozwól istocie podejść zbyt blisko.',worldMetric:'ŚRODOWISKO',worldValue:'CZARNY KOD',threatMetric:'ZAGROŻENIE',threatValue:'NIEZNANE',startSession:'ROZPOCZNIJ SESJĘ',settingsKicker:'SYSTEM / CONFIG',settingsTitle:'USTAWIENIA SYSTEMU',renderQuality:'Jakość renderowania',qualityLow:'Niska',qualityMedium:'Średnia',qualityHigh:'Wysoka',qualityUltra:'Ultra',displayMode:'Tryb ekranu',windowed:'Okno',fullscreen:'Pełny ekran',volume:'Głośność',interfaceLanguage:'Język interfejsu',settingsNote:'Jakość zmienia się od razu. Pełny ekran może wymagać zgody przeglądarki.',back:'← WSTECZ',languageKicker:'SYSTEM / LANGUAGE',languageTitle:'WYBIERZ JĘZYK',languageText:'Język interfejsu możesz zmienić w każdej chwili. Wybierz jedną z pięciu opcji.',authorsKicker:'CREDITS / 001',authorsTitle:'TWÓRCY PROJEKTU',authorsText:'Osoby i narzędzia AI, które brały udział w tworzeniu THE CODER.',creatorRole:'Autor projektu',aiRole:'Asystent AI',footerText:'THE CODER · WEJŚCIE W CYFROWY KOSZMAR',scanning:'SKANOWANIE...',entityName:'NIEZNANA ISTOTA',entityStatus:'SYGNAŁ NIESTABILNY',entityWarning:'OBIEKT PORUSZA SIĘ, NAWET GDY NIE PATRZYSZ.',killsLabel:'ZABÓJSTWA:',stateLabel:'STATUS:',gameHint:'WASD · MYSZ · SHIFT — BIEG · ESC — PAUZA · M — DŹWIĘK',muteOn:'[ DŹWIĘK: WŁ. ]',muteOff:'[ DŹWIĘK: WYŁ. ]',paused:'PAUZA',searching:'SZUKANIE',nearby:'ISTOTA W POBLIŻU',approach:'IDZIE PO CIEBIE',lost:'UTRACONO SYGNAŁ',vanished:'ŚLADY ZNIKNĘŁY',waiting:'OCZEKIWANIE'
+  },
+  sv: {
+    brandSub:'DIGITAL MARDÖM',systemOnline:'SYSTEM ONLINE',heroOverline:'STIG IN I DET OKÄNDA / 001',mobileRun:'SPRING',mobileMove:'RÖRELSE',mobileLook:'SVE PÅ SKÄRMEN',mobileGameHint:'JOYSTICK · SVEPA · SPRING · PAUS',heroSubtitle:'KODEN ÄR DET ENDA LJUSET I DET OÄNDLIGA MÖRKRET. SE DIG INTE OM. DEN VET REDAN ATT DU ÄR HÄR.',play:'SPELA',playDesc:'STARTA SESSION',settings:'INSTÄLLNINGAR',settingsDesc:'ÄNDRA SYSTEMET',language:'SPRÅK',languageDesc:'VÄLJ GRÄNSSNITT',authors:'SKAPARE',authorsDesc:'VEM BYGGDE DENNA VÄRLD',welcomeKicker:'SESSIONEN ÄR REDO',welcomeTitle:'DU GÅR IN I SYSTEMET.',welcomeText:'Utforska ett oändligt rum av kod. Följ signalerna, lyssna till tystnaden och låt inte varelsen komma för nära.',worldMetric:'MILJÖ',worldValue:'SVART KOD',threatMetric:'HOT',threatValue:'OKÄNT',startSession:'STARTA SESSION',settingsKicker:'SYSTEM / CONFIG',settingsTitle:'SYSTEMINSTÄLLNINGAR',renderQuality:'Renderingskvalitet',qualityLow:'Låg',qualityMedium:'Medel',qualityHigh:'Hög',qualityUltra:'Ultra',displayMode:'Skärmläge',windowed:'Fönster',fullscreen:'Helskärm',volume:'Volym',interfaceLanguage:'Gränssnittsspråk',settingsNote:'Kvaliteten ändras direkt. Helskärm kan kräva tillåtelse från webbläsaren.',back:'← TILLBAKA',languageKicker:'SYSTEM / LANGUAGE',languageTitle:'VÄLJ DITT SPRÅK',languageText:'Du kan byta gränssnittsspråk när som helst. Välj ett av fem alternativ.',authorsKicker:'CREDITS / 001',authorsTitle:'PROJEKTETS SKAPARE',authorsText:'Personer och AI-verktyg som deltog i skapandet av THE CODER.',creatorRole:'Projektets skapare',aiRole:'AI-assistent',footerText:'THE CODER · EN DIGITAL MARDÖM',scanning:'SKANNAR...',entityName:'OKÄND VARELSE',entityStatus:'INSTABIL SIGNAL',entityWarning:'OBJEKTET RÖR SIG ÄVEN NÄR DU INTE TITTAR.',killsLabel:'DÖDSFALL:',stateLabel:'STATUS:',gameHint:'WASD · MUS · SHIFT — SPRING · ESC — PAUS · M — LJUD',muteOn:'[ LJUD: PÅ ]',muteOff:'[ LJUD: AV ]',paused:'PAUS',searching:'SÖKER',nearby:'VARELSEN ÄR NÄRA',approach:'DEN KOMMER EFTER DIG',lost:'SIGNALEN FÖRLORAD',vanished:'SPÅREN FÖRSVANN',waiting:'VÄNTAR'
+  }
+ };
+Object.assign(languageText.ru, {
+  multiplayer:'МУЛЬТИПЛЕЕР', multiplayerDesc:'ИГРАТЬ С ДРУЗЬЯМИ', mpTitle:'СОВМЕСТНЫЙ СЕАНС',
+  mpIntro:'Создай комнату и отправь код другу или подключись к уже созданной комнате.',
+  mpNameLabel:'ИМЯ ИГРОКА', mpRoomLabel:'КОД КОМНАТЫ', mpCopy:'КОПИРОВАТЬ', mpCreate:'＋ СОЗДАТЬ КОМНАТУ',
+  mpJoin:'↗ ВОЙТИ ПО КОДУ', mpLeave:'ОТКЛЮЧИТЬСЯ', mpStatusLabel:'СОСТОЯНИЕ СЕТИ', mpNoPlayers:'Комната пока пуста',
+  mpNote:'Нужен интернет. Игроки должны открыть опубликованную версию игры. Мультиплеер передаёт позиции игроков через WebRTC.'
+});
+Object.assign(languageText.en, {
+  multiplayer:'MULTIPLAYER', multiplayerDesc:'PLAY WITH FRIENDS', mpTitle:'CO-OP SESSION',
+  mpIntro:'Create a room and share its code, or join a room a friend has created.',
+  mpNameLabel:'PLAYER NAME', mpRoomLabel:'ROOM CODE', mpCopy:'COPY', mpCreate:'＋ CREATE ROOM',
+  mpJoin:'↗ JOIN ROOM', mpLeave:'DISCONNECT', mpStatusLabel:'NETWORK STATUS', mpNoPlayers:'Room is empty for now',
+  mpNote:'Internet is required. Both players must open the published game. Multiplayer synchronizes player positions over WebRTC.'
+});
+Object.assign(languageText.uk, {
+  multiplayer:'МУЛЬТИПЛЕЄР', multiplayerDesc:'ГРАТИ З ДРУЗЯМИ', mpTitle:'СПІЛЬНИЙ СЕАНС',
+  mpIntro:'Створи кімнату й надішли код другу або приєднайся до створеної кімнати.',
+  mpNameLabel:"ІМ’Я ГРАВЦЯ", mpRoomLabel:'КОД КІМНАТИ', mpCopy:'КОПІЮВАТИ', mpCreate:'＋ СТВОРИТИ КІМНАТУ',
+  mpJoin:'↗ УВІЙТИ ЗА КОДОМ', mpLeave:'ВІД’ЄДНАТИСЯ', mpStatusLabel:'СТАН МЕРЕЖІ', mpNoPlayers:'Кімната поки порожня',
+  mpNote:'Потрібен інтернет. Обидва гравці мають відкрити опубліковану гру. Мультиплеєр передає позиції гравців через WebRTC.'
+});
+Object.assign(languageText.pl, {
+  multiplayer:'MULTIPLAYER', multiplayerDesc:'GRAJ ZE ZNAJOMYMI', mpTitle:'WSPÓLNA SESJA',
+  mpIntro:'Utwórz pokój i udostępnij kod albo dołącz do pokoju znajomego.',
+  mpNameLabel:'NAZWA GRACZA', mpRoomLabel:'KOD POKOJU', mpCopy:'KOPIUJ', mpCreate:'＋ UTWÓRZ POKÓJ',
+  mpJoin:'↗ DOŁĄCZ DO POKOJU', mpLeave:'ROZŁĄCZ', mpStatusLabel:'STAN SIECI', mpNoPlayers:'Pokój jest jeszcze pusty',
+  mpNote:'Wymagany jest internet. Obaj gracze muszą otworzyć opublikowaną grę. Multiplayer synchronizuje pozycje graczy przez WebRTC.'
+});
+Object.assign(languageText.sv, {
+  multiplayer:'FLERSPELARE', multiplayerDesc:'SPELA MED VÄNNER', mpTitle:'GEMENSAM SESSION',
+  mpIntro:'Skapa ett rum och dela koden, eller gå med i en väns rum.',
+  mpNameLabel:'SPELARNAMN', mpRoomLabel:'RUMSKOD', mpCopy:'KOPIERA', mpCreate:'＋ SKAPA RUM',
+  mpJoin:'↗ GÅ MED', mpLeave:'KOPPLA FRÅN', mpStatusLabel:'NÄTVERKSSTATUS', mpNoPlayers:'Rummet är tomt än så länge',
+  mpNote:'Internet krävs. Båda spelarna måste öppna den publicerade versionen. Flerspelarläget synkroniserar spelarnas positioner via WebRTC.'
+});
+
+const mpExtraTranslations = {
+ ru: {mpLobbyEyebrow:'NETWORK / PRIVATE ACCESS',mpLobbyOnline:'СЕТЬ ГОТОВА',mpLobbySub:'ЦИФРОВОЕ ЛОББИ / 4 СЛОТА',mpChoosePc:'ВЫБЕРИ КОМПЬЮТЕР',mpFourTerminals:'4 ТЕРМИНАЛА / 4 СЛОТА',mpPcCreateHint:'Создать комнату или изменить настройки',mpPcJoinHint:'Подключиться к друзьям по коду',mpPcMapHint:'Настройки карты и режима',mpPcAudioHint:'Микрофон, веб-камера и шум',mpMapComingNote:'КАРТА: СКОРО БУДЕТ ДОБАВЛЕНА. Сейчас терминалы открывают настройки совместной комнаты.',mpConfigTitle:'НАСТРОЙКА КОМНАТЫ',mpTerminalLabel:'ТЕРМИНАЛ',mpBackComputers:'← К КОМПЬЮТЕРАМ',mpMapLabel:'КАРТА',mpMapSoon:'СКОРО БУДЕТ',mpMaxPlayersLabel:'МАКСИМУМ ИГРОКОВ',mpDifficultyLabel:'СЛОЖНОСТЬ',mpEasy:'ЛЁГКАЯ / EASY',mpNormal:'СТАНДАРТНАЯ / NORMAL',mpNightmare:'КОШМАР / NIGHTMARE',mpMonsterHearsLabel:'МОНСТР СЛЫШИТ ГОЛОС И БЕЖИТ НА ЗВУК',mpMediaTitle:'ГОЛОСОВОЙ КАНАЛ / WEBCAM',mpMicEnable:'🎙 ВКЛЮЧИТЬ МИКРОФОН',mpMicDisable:'🎙 ВЫКЛЮЧИТЬ МИКРОФОН',mpCamEnable:'▣ ВКЛЮЧИТЬ ВЕБ-КАМЕРУ',mpCamDisable:'▣ ВЫКЛЮЧИТЬ ВЕБ-КАМЕРУ',mpMediaPermissions:'Микрофон и камера включаются только после твоего нажатия и разрешения браузера.',mpLocalPreview:'ЛОКАЛЬНОЕ ПРЕВЬЮ',mpNoiseSensitivity:'ЧУВСТВИТЕЛЬНОСТЬ МОНСТРА К ШУМУ',mpNoiseIdle:'Шкала реагирует на уровень микрофона. Громкий голос выдаёт твою позицию.',mpNoiseLive:'Шум микрофона',mpPrivacyNote:'Голос и видео передаются другим игрокам по WebRTC напрямую. Отключи микрофон или камеру кнопкой; выход из комнаты выключает локальные устройства.'},
+ en: {mpLobbyEyebrow:'NETWORK / PRIVATE ACCESS',mpLobbyOnline:'NETWORK READY',mpLobbySub:'DIGITAL LOBBY / 4 SLOTS',mpChoosePc:'CHOOSE A COMPUTER',mpFourTerminals:'4 TERMINALS / 4 SLOTS',mpPcCreateHint:'Create a room or change settings',mpPcJoinHint:'Connect to friends with a code',mpPcMapHint:'Map and game-mode settings',mpPcAudioHint:'Microphone, webcam and noise',mpMapComingNote:'MAP: COMING SOON. For now, terminals open co-op room settings.',mpConfigTitle:'ROOM CONFIGURATION',mpTerminalLabel:'TERMINAL',mpBackComputers:'← COMPUTERS',mpMapLabel:'MAP',mpMapSoon:'COMING SOON',mpMaxPlayersLabel:'MAX PLAYERS',mpDifficultyLabel:'DIFFICULTY',mpEasy:'EASY',mpNormal:'NORMAL',mpNightmare:'NIGHTMARE',mpMonsterHearsLabel:'MONSTER HEARS VOICE AND RUNS TOWARD THE SOUND',mpMediaTitle:'VOICE CHANNEL / WEBCAM',mpMicEnable:'🎙 ENABLE MICROPHONE',mpMicDisable:'🎙 DISABLE MICROPHONE',mpCamEnable:'▣ ENABLE WEBCAM',mpCamDisable:'▣ DISABLE WEBCAM',mpMediaPermissions:'Mic and camera only turn on after you press a button and grant browser permission.',mpLocalPreview:'LOCAL PREVIEW',mpNoiseSensitivity:'MONSTER NOISE SENSITIVITY',mpNoiseIdle:'The meter reacts to microphone level. A loud voice gives away your position.',mpNoiseLive:'Mic noise',mpPrivacyNote:'Voice and video are sent directly to other players over WebRTC. Use the buttons to disable devices; leaving the room turns them off.'},
+ uk: {mpLobbyEyebrow:'NETWORK / PRIVATE ACCESS',mpLobbyOnline:'МЕРЕЖА ГОТОВА',mpLobbySub:'ЦИФРОВЕ ЛОБІ / 4 СЛОТИ',mpChoosePc:'ОБЕРИ КОМП’ЮТЕР',mpFourTerminals:'4 ТЕРМІНАЛИ / 4 СЛОТИ',mpPcCreateHint:'Створити кімнату або змінити налаштування',mpPcJoinHint:'Під’єднатися до друзів за кодом',mpPcMapHint:'Налаштування мапи й режиму',mpPcAudioHint:'Мікрофон, вебкамера та шум',mpMapComingNote:'МАПА: СКОРО БУДЕ ДОДАНА. Поки термінали відкривають налаштування кімнати.',mpConfigTitle:'НАЛАШТУВАННЯ КІМНАТИ',mpTerminalLabel:'ТЕРМІНАЛ',mpBackComputers:'← ДО КОМП’ЮТЕРІВ',mpMapLabel:'МАПА',mpMapSoon:'СКОРО',mpMaxPlayersLabel:'МАКСИМУМ ГРАВЦІВ',mpDifficultyLabel:'СКЛАДНІСТЬ',mpEasy:'ЛЕГКА',mpNormal:'СТАНДАРТНА',mpNightmare:'ЖАХІТТЯ',mpMonsterHearsLabel:'МОНСТР ЧУЄ ГОЛОС І БІЖИТЬ НА ЗВУК',mpMediaTitle:'ГОЛОСОВИЙ КАНАЛ / WEBCAM',mpMicEnable:'🎙 УВІМКНУТИ МІКРОФОН',mpMicDisable:'🎙 ВИМКНУТИ МІКРОФОН',mpCamEnable:'▣ УВІМКНУТИ ВЕБКАМЕРУ',mpCamDisable:'▣ ВИМКНУТИ ВЕБКАМЕРУ',mpMediaPermissions:'Мікрофон і камера вмикаються лише після натискання кнопки та дозволу браузера.',mpLocalPreview:'ЛОКАЛЬНЕ ПРЕВ’Ю',mpNoiseSensitivity:'ЧУТЛИВІСТЬ МОНСТРА ДО ШУМУ',mpNoiseIdle:'Шкала реагує на рівень мікрофона. Гучний голос видає твою позицію.',mpNoiseLive:'Шум мікрофона',mpPrivacyNote:'Голос і відео передаються гравцям напряму через WebRTC. Вимикай пристрої кнопками; вихід із кімнати їх вимикає.'},
+ pl: {mpLobbyEyebrow:'NETWORK / PRIVATE ACCESS',mpLobbyOnline:'SIEĆ GOTOWA',mpLobbySub:'CYFROWE LOBBY / 4 MIEJSCA',mpChoosePc:'WYBIERZ KOMPUTER',mpFourTerminals:'4 TERMINALE / 4 MIEJSCA',mpPcCreateHint:'Utwórz pokój lub zmień ustawienia',mpPcJoinHint:'Dołącz do znajomych za pomocą kodu',mpPcMapHint:'Ustawienia mapy i trybu',mpPcAudioHint:'Mikrofon, kamera i szum',mpMapComingNote:'MAPA: WKRÓTCE. Na razie terminale otwierają ustawienia pokoju.',mpConfigTitle:'KONFIGURACJA POKOJU',mpTerminalLabel:'TERMINAL',mpBackComputers:'← DO KOMPUTERÓW',mpMapLabel:'MAPA',mpMapSoon:'WKRÓTCE',mpMaxPlayersLabel:'MAKS. GRACZY',mpDifficultyLabel:'POZIOM TRUDNOŚCI',mpEasy:'ŁATWY',mpNormal:'NORMALNY',mpNightmare:'KOSZMAR',mpMonsterHearsLabel:'POTWÓR SŁYSZY GŁOS I BIEGNIE DO ŹRÓDŁA',mpMediaTitle:'KANAŁ GŁOSOWY / WEBCAM',mpMicEnable:'🎙 WŁĄCZ MIKROFON',mpMicDisable:'🎙 WYŁĄCZ MIKROFON',mpCamEnable:'▣ WŁĄCZ KAMERĘ',mpCamDisable:'▣ WYŁĄCZ KAMERĘ',mpMediaPermissions:'Mikrofon i kamera włączają się dopiero po kliknięciu i udzieleniu zgody w przeglądarce.',mpLocalPreview:'PODGLĄD LOKALNY',mpNoiseSensitivity:'WRAŻLIWOŚĆ POTWORA NA SZUM',mpNoiseIdle:'Miernik reaguje na poziom mikrofonu. Głośny głos zdradza twoją pozycję.',mpNoiseLive:'Szum mikrofonu',mpPrivacyNote:'Głos i wideo są przesyłane bezpośrednio przez WebRTC. Wyłącz urządzenia przyciskami; wyjście z pokoju je wyłącza.'},
+ sv: {mpLobbyEyebrow:'NETWORK / PRIVATE ACCESS',mpLobbyOnline:'NÄTVERK KLART',mpLobbySub:'DIGITAL LOBBY / 4 PLATSER',mpChoosePc:'VÄLJ EN DATOR',mpFourTerminals:'4 TERMINALER / 4 PLATSER',mpPcCreateHint:'Skapa ett rum eller ändra inställningar',mpPcJoinHint:'Anslut till vänner med en kod',mpPcMapHint:'Kart- och spellägesinställningar',mpPcAudioHint:'Mikrofon, webbkamera och brus',mpMapComingNote:'KARTA: KOMMER SNART. Terminalerna öppnar tills vidare rumsinställningar.',mpConfigTitle:'RUMSINSTÄLLNINGAR',mpTerminalLabel:'TERMINAL',mpBackComputers:'← TILL DATORER',mpMapLabel:'KARTA',mpMapSoon:'KOMMER SNART',mpMaxPlayersLabel:'MAX SPELARE',mpDifficultyLabel:'SVÅRIGHET',mpEasy:'LÄTT',mpNormal:'NORMAL',mpNightmare:'MARDÖM',mpMonsterHearsLabel:'MONSTRET HÖR RÖSTEN OCH SPRINGER MOT LJUDET',mpMediaTitle:'RÖSTKANAL / WEBCAM',mpMicEnable:'🎙 AKTIVERA MIKROFON',mpMicDisable:'🎙 STÄNG AV MIKROFON',mpCamEnable:'▣ AKTIVERA WEBBKAMERA',mpCamDisable:'▣ STÄNG AV WEBBKAMERA',mpMediaPermissions:'Mikrofon och kamera aktiveras först när du trycker och ger webbläsaren tillstånd.',mpLocalPreview:'LOKAL FÖRHANDSVISNING',mpNoiseSensitivity:'MONSTERNS BRUSKÄNSLIGHET',mpNoiseIdle:'Mätaren reagerar på mikrofonen. En hög röst avslöjar din position.',mpNoiseLive:'Mikrofonbrus',mpPrivacyNote:'Röst och video skickas direkt via WebRTC. Stäng av enheterna med knapparna; när du lämnar rummet stängs de av.'}
+};
+for (const locale of Object.keys(mpExtraTranslations)) Object.assign(languageText[locale], mpExtraTranslations[locale]);
+
+let currentLanguage = 'ru';
+function tr(key) { return (languageText[currentLanguage] && languageText[currentLanguage][key]) || languageText.ru[key] || key; }
+function applyLanguage(code) {
+  currentLanguage = languageText[code] ? code : 'ru';
+  document.documentElement.lang = currentLanguage;
+  document.querySelectorAll('[data-i18n]').forEach(el => { const value = tr(el.dataset.i18n); if (value) el.textContent = value; });
+  const languageSelect = $('languageSelect'); if (languageSelect) languageSelect.value = currentLanguage;
+  document.querySelectorAll('[data-lang]').forEach(el => el.classList.toggle('active', el.dataset.lang === currentLanguage));
+  $('hint').textContent = touchDevice ? tr('mobileGameHint') : tr('gameHint');
+  muteEl.textContent = '[ ' + (audioMuted ? tr('muteOff').replace(/^\[ | \]$/g,'') : tr('muteOn').replace(/^\[ | \]$/g,'')) + ' ]';
+  if (typeof mpMedia!=='undefined') { if ($('mpMicToggle')) { $('mpMicToggle').textContent=tr(mpMedia.audioOn?'mpMicDisable':'mpMicEnable'); $('mpMicToggle').classList.toggle('active',mpMedia.audioOn); } if ($('mpCamToggle')) { $('mpCamToggle').textContent=tr(mpMedia.videoOn?'mpCamDisable':'mpCamEnable'); $('mpCamToggle').classList.toggle('active',mpMedia.videoOn); } }
+  try { localStorage.setItem('theCoderLanguage', currentLanguage); } catch (_) {}
+}
+let audioMuted = false;
+function showMenuPage(page) {
+  document.querySelectorAll('[data-page-content]').forEach(el => el.classList.toggle('active', el.dataset.pageContent === page));
+  document.querySelectorAll('.menu-nav-btn[data-page]').forEach(el => el.classList.toggle('active', el.dataset.page === page));
+}
+/* ============================================================
+   THE CODER MULTIPLAYER — room codes + PeerJS/WebRTC.
+   GitHub Pages remains static; PeerJS provides signaling while
+   player-state packets travel directly between browsers.
+   ============================================================ */
+const mp = {
+  peer:null, isHost:false, active:false, roomId:'', connections:new Map(),
+  players:new Map(), lastSend:0, lastSnapshot:0, statusKey:'mpDisconnected', monsterSnapshot:null,
+  settings:{maxPlayers:4,difficulty:'normal',monsterHears:true,map:'coming'}
+};
+const remoteAvatars = new Map();
+const mpMedia = {stream:null, audioOn:false, videoOn:false, analyser:null, analyserData:null, audioContext:null, level:0, heardUntil:0, lastHeardTarget:null, sensitivity:55, calls:new Map(), remoteViews:new Map(), localPeerSignature:''};
+const mpBodyGeometry = new THREE.CylinderGeometry(.72, 1.05, 5.2, 7, 1, true);
+const mpHeadGeometry = new THREE.IcosahedronGeometry(.95, 1);
+function mpName() {
+  const input = $('mpName');
+  const value = (input.value || '').trim().replace(/[<>\u0000-\u001f]/g, '').slice(0,16);
+  return value || 'PLAYER';
+}
+function setMpStatus(text) { $('mpStatus').textContent = text; }
+function currentPlayerPacket() {
+  return {
+    id: mp.peer && mp.peer.id ? mp.peer.id : 'local-player',
+    name: mpName(), x: Number(camera.position.x) || 0, z: Number(camera.position.z) || 0,
+    yaw: Number(state.yaw) || 0, running: !!(state.keys.ShiftLeft || state.keys.ShiftRight || state.mobileRunning),
+    mediaAudio:!!mpMedia.audioOn, mediaVideo:!!mpMedia.videoOn, noise:Number(mpMedia.level)||0
+  };
+}
+function makeMpRoster() {
+  const list = [];
+  if (mp.peer && mp.peer.id) list.push(currentPlayerPacket());
+  for (const player of mp.players.values()) list.push(player);
+  return list;
+}
+function playerColorFromId(id) {
+  let hash = 0; for (let i=0; i<id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  const colors = [0x00ff55,0x27d9ff,0xc66bff,0xffce4a,0xff6b87,0x75ffa2];
+  return colors[Math.abs(hash) % colors.length];
+}
+function makeNameSprite(name, colorHex) {
+  const c = document.createElement('canvas'); c.width = 512; c.height = 96;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgba(0,8,2,.72)'; g.fillRect(4,8,504,80);
+  g.strokeStyle = '#' + colorHex.toString(16).padStart(6,'0'); g.lineWidth = 3; g.strokeRect(4,8,504,80);
+  g.font = 'bold 30px Courier New, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.shadowColor = g.strokeStyle; g.shadowBlur = 10; g.fillStyle = '#eaffed';
+  g.fillText(String(name || 'PLAYER').slice(0,16),256,48);
+  const texture = new THREE.CanvasTexture(c); texture.minFilter = THREE.LinearFilter;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthWrite:false,depthTest:true}));
+  sprite.scale.set(8.5,1.6,1); sprite.position.set(0,12.1,0); return sprite;
+}
+function ensureRemoteAvatar(player) {
+  if (!player || typeof player.id !== 'string' || !player.id || (mp.peer && player.id === mp.peer.id)) return;
+  let avatar = remoteAvatars.get(player.id);
+  if (!avatar) {
+    const group = new THREE.Group(), hex = playerColorFromId(player.id);
+    const material = new THREE.MeshBasicMaterial({color:hex,wireframe:true,transparent:true,opacity:.92});
+    const headMaterial = new THREE.MeshBasicMaterial({color:hex,wireframe:true});
+    const body = new THREE.Mesh(mpBodyGeometry,material); body.position.y=5.0; group.add(body);
+    const head = new THREE.Mesh(mpHeadGeometry,headMaterial); head.position.y=8.5; group.add(head);
+    const eyeMaterial = new THREE.MeshBasicMaterial({color:0xffffff});
+    const eyeGeo = new THREE.BoxGeometry(.18,.18,.18);
+    const e1 = new THREE.Mesh(eyeGeo,eyeMaterial), e2 = new THREE.Mesh(eyeGeo,eyeMaterial);
+    e1.position.set(-.3,8.6,-.82); e2.position.set(.3,8.6,-.82); group.add(e1,e2);
+    const faceMaterial = new THREE.MeshBasicMaterial({color:0x002b0a,side:THREE.DoubleSide,transparent:false});
+    const faceMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.48,1.15),faceMaterial); faceMesh.position.set(0,8.5,-0.985); group.add(faceMesh);
+    const faceFrame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1.58,1.25)),new THREE.LineBasicMaterial({color:hex})); faceFrame.position.set(0,8.5,-1.0); group.add(faceFrame);
+    const label = makeNameSprite(player.name || 'PLAYER',hex); group.add(label);
+    group.position.set(0,-8,0); scene.add(group);
+    avatar = {group,label,faceMesh,faceTexture:null,targetX:0,targetZ:0,targetYaw:0,name:player.name || 'PLAYER'};
+    remoteAvatars.set(player.id,avatar);
+  }
+  avatar.name = String(player.name || avatar.name || 'PLAYER').slice(0,16);
+  avatar.targetX = Number.isFinite(Number(player.x)) ? Number(player.x) : 0;
+  avatar.targetZ = Number.isFinite(Number(player.z)) ? Number(player.z) : 0;
+  avatar.targetYaw = Number.isFinite(Number(player.yaw)) ? Number(player.yaw) : 0;
+  return avatar;
+}
+function removeRemoteAvatar(id) {
+  const avatar = remoteAvatars.get(id); if (!avatar) return;
+  if (typeof clearRemoteMedia === 'function') clearRemoteMedia(id);
+  scene.remove(avatar.group);
+  avatar.group.traverse(obj => {
+    if (obj.isSprite && obj.material && obj.material.map) obj.material.map.dispose();
+    if (obj.material && obj.material !== undefined && obj.material !== mpSharedMaterial) obj.material.dispose?.();
+  });
+  remoteAvatars.delete(id);
+}
+const mpSharedMaterial = null;
+function syncMpPlayers(players) {
+  if (!Array.isArray(players)) return;
+  const keep = new Set();
+  for (const p of players) {
+    if (!p || typeof p.id !== 'string' || p.id.length > 100) continue;
+    if (mp.peer && p.id === mp.peer.id) continue;
+    keep.add(p.id);
+    const clean = {id:p.id,name:String(p.name || 'PLAYER').slice(0,16),x:Number(p.x)||0,z:Number(p.z)||0,yaw:Number(p.yaw)||0,mediaAudio:!!p.mediaAudio,mediaVideo:!!p.mediaVideo,noise:Number(p.noise)||0};
+    mp.players.set(clean.id,clean); ensureRemoteAvatar(clean);
+  }
+  for (const id of Array.from(mp.players.keys())) {
+    if (!keep.has(id)) { mp.players.delete(id); removeRemoteAvatar(id); }
+  }
+  updateMpLobby();
+  syncMediaCalls();
+}
+function updateMpLobby() {
+  const currentCount = mp.active ? Math.min(Number(mp.settings.maxPlayers)||4,1+mp.players.size) : 0;
+  $('mpPlayerCount').textContent = currentCount + ' / ' + (Number(mp.settings.maxPlayers)||4);
+  $('mpSignalState').textContent = mp.active ? 'CONNECTED' : 'STABLE';
+  if ($('mpMaxPlayers')) $('mpMaxPlayers').value=String(mp.settings.maxPlayers||4);
+  if ($('mpDifficulty')) $('mpDifficulty').value=mp.settings.difficulty||'normal';
+  if ($('mpMonsterHears')) $('mpMonsterHears').checked=!!mp.settings.monsterHears;
+  const isHostEditable = !mp.active || mp.isHost;
+  if ($('mpMaxPlayers')) $('mpMaxPlayers').disabled=!!mp.active || !mp.isHost;
+  ['mpDifficulty','mpMonsterHears'].forEach(id=>{if($(id))$(id).disabled=!isHostEditable;});
+  $('mpCopy').disabled = !mp.active || !mp.roomId;
+  $('mpLeave').disabled = !mp.active && !mp.peer;
+  $('mpCreate').disabled = !!mp.peer;
+  $('mpJoin').disabled = !!mp.peer;
+  const roster = $('mpRoster'); roster.replaceChildren();
+  if (!mp.active) {
+    const empty = document.createElement('div'); empty.className='mp-roster-item';
+    const dot = document.createElement('span'); dot.className='mp-dot';
+    const label = document.createElement('span'); label.textContent=tr('mpNoPlayers'); empty.append(dot,label); roster.append(empty); return;
+  }
+  const local = document.createElement('div'); local.className='mp-roster-item';
+  const dot = document.createElement('span'); dot.className='mp-dot';
+  const label = document.createElement('span'); label.textContent=mpName()+' ('+(mp.isHost ? (currentLanguage==='en'?'HOST':currentLanguage==='sv'?'VÄRD':'ХОСТ') : (currentLanguage==='en'?'YOU':currentLanguage==='sv'?'DU':'ТЫ'))+')';
+  const flag = document.createElement('small'); flag.textContent='ONLINE'; local.append(dot,label,flag); roster.append(local);
+  for (const p of mp.players.values()) {
+    if (mp.peer && p.id === mp.peer.id) continue;
+    const row=document.createElement('div'); row.className='mp-roster-item';
+    const d=document.createElement('span'); d.className='mp-dot';
+    const n=document.createElement('span'); n.textContent=String(p.name||'PLAYER').slice(0,16);
+    const r=document.createElement('small'); r.className='mp-media-badge'; r.textContent=(p.mediaAudio?'MIC ':'')+(p.mediaVideo?'CAM':'')||'ONLINE'; row.append(d,n,r); roster.append(row);
+  }
+}
+function sendToAll(message) {
+  for (const conn of mp.connections.values()) if (conn && conn.open) { try { conn.send(message); } catch (_) {} }
+}
+function sendRosterToAll() {
+  const message = {type:'roster', players:makeMpRoster(), settings:mp.settings}; sendToAll(message);
+}
+function makeMonsterPacket() {
+  return {x:spiderGroup.position.x,y:spiderGroup.position.y,z:spiderGroup.position.z,yaw:spiderGroup.rotation.y,visible:!!(state.started&&spiderGroup.visible),active:!!ent.active,phase:ent.phase,level:ent.level,rearUp:ent.rearUp,targetId:ent.targetId,victimId:ent.victimId,totalKills:ent.totalKills,legOpacity:legMat.opacity,jointOpacity:jointMat.opacity,speedFactor:ent.phase==='approach'?(monsterHearsVoice()?1.7:1):0};
+}
+function sendSnapshotToAll() {
+  const message = {type:'snapshot', players:makeMpRoster(), settings:mp.settings, monster:makeMonsterPacket()}; sendToAll(message);
+}
+function onHostMessage(conn,data) {
+  if (!data || typeof data !== 'object') return;
+  if (data.type === 'hello') {
+    const packet = data.player && typeof data.player === 'object' ? data.player : {};
+    const player = {id:conn.peer,name:String(data.name || packet.name || 'PLAYER').slice(0,16),x:Number(packet.x)||0,z:Number(packet.z)||0,yaw:Number(packet.yaw)||0,mediaAudio:!!packet.mediaAudio,mediaVideo:!!packet.mediaVideo,noise:Number(packet.noise)||0};
+    mp.players.set(conn.peer,player); ensureRemoteAvatar(player);
+    try { conn.send({type:'welcome', players:makeMpRoster(), roomId:mp.roomId, settings:mp.settings}); } catch (_) {}
+    sendRosterToAll(); updateMpLobby(); setMpStatus(currentLanguage==='en'?'ROOM ONLINE':currentLanguage==='sv'?'RUMMET ÄR ONLINE':'КОМНАТА АКТИВНА');
+  } else if (data.type === 'state' && data.player) {
+    const p=data.player;
+    const player={id:conn.peer,name:String(p.name||mp.players.get(conn.peer)?.name||'PLAYER').slice(0,16),x:Number(p.x)||0,z:Number(p.z)||0,yaw:Number(p.yaw)||0,mediaAudio:!!p.mediaAudio,mediaVideo:!!p.mediaVideo,noise:Number(p.noise)||0};
+    mp.players.set(conn.peer,player); ensureRemoteAvatar(player);
+  }
+}
+function onClientMessage(data) {
+  if (!data || typeof data !== 'object') return;
+  if (data.type === 'full') {
+    stopAllMedia();
+    setMpStatus(currentLanguage==='en'?'ROOM IS FULL (MAX 6)':currentLanguage==='sv'?'RUMMET ÄR FULLT (MAX 6)':'КОМНАТА ЗАПОЛНЕНА (МАКС. 6)');
+    mp.active=false; mp.players.clear();
+    for (const id of Array.from(remoteAvatars.keys())) removeRemoteAvatar(id);
+    for (const c of mp.connections.values()) { try { c.close(); } catch (_) {} }
+    mp.connections.clear();
+    try { if (mp.peer && !mp.peer.destroyed) mp.peer.destroy(); } catch (_) {}
+    mp.peer=null; mp.isHost=false; updateMpLobby(); return;
+  }
+  if (data.type === 'welcome' || data.type === 'roster' || data.type === 'snapshot') {
+    if (data.settings && !mp.isHost) applyMpSettings(data.settings);
+    if (data.monster && typeof data.monster==='object' && !mp.isHost) mp.monsterSnapshot=data.monster;
+    syncMpPlayers(data.players || []);
+    if (data.roomId) mp.roomId=String(data.roomId);
+    mp.active=true; setMpStatus(currentLanguage==='en'?'CONNECTED':currentLanguage==='sv'?'ANSLUTEN':'ПОДКЛЮЧЕНО'); updateMpLobby();
+  }
+}
+function attachMpConnection(conn, incoming) {
+  if (!conn) return;
+  conn.on('open', () => {
+    if (mp.isHost && incoming && !mp.connections.has(conn.peer) && mp.connections.size >= (Number(mp.settings.maxPlayers)||4)-1) {
+      try { conn.send({type:'full'}); } catch (_) {}
+      setMpStatus(currentLanguage==='en'?'ROOM FULL — MAX '+(Number(mp.settings.maxPlayers)||4)+' PLAYERS':currentLanguage==='sv'?'RUMMET ÄR FULLT — MAX '+(Number(mp.settings.maxPlayers)||4)+' SPELARE':'КОМНАТА ЗАПОЛНЕНА — МАКСИМУМ '+(Number(mp.settings.maxPlayers)||4)+' ИГРОКА');
+      setTimeout(() => { try { conn.close(); } catch (_) {} }, 250); return;
+    }
+    mp.connections.set(conn.peer,conn);
+    if (!mp.isHost) {
+      setMpStatus(currentLanguage==='en'?'SENDING PLAYER DATA':currentLanguage==='sv'?'SKICKAR SPELARDATA':'ПЕРЕДАЧА ДАННЫХ ИГРОКА');
+      try { conn.send({type:'hello',name:mpName(),player:currentPlayerPacket()}); } catch (_) {}
+    } else if (incoming) {
+      setMpStatus(currentLanguage==='en'?'PLAYER CONNECTED':currentLanguage==='sv'?'SPELARE ANSLUTEN':'ПОДКЛЮЧИЛСЯ ИГРОК');
+    }
+    updateMpLobby();
+  });
+  conn.on('data', data => { if (mp.isHost) onHostMessage(conn,data); else onClientMessage(data); });
+  conn.on('close', () => {
+    mp.connections.delete(conn.peer);
+    if (mp.isHost) {
+      mp.players.delete(conn.peer); removeRemoteAvatar(conn.peer); clearRemoteMedia(conn.peer); sendRosterToAll(); updateMpLobby();
+      if (mp.active) setMpStatus(currentLanguage==='en'?'PLAYER LEFT':currentLanguage==='sv'?'SPELARE LÄMNADE':'ИГРОК ОТКЛЮЧИЛСЯ');
+    } else if (mp.active) {
+      stopAllMedia(); mp.active=false; mp.players.clear(); for (const id of Array.from(remoteAvatars.keys())) removeRemoteAvatar(id);
+      setMpStatus(currentLanguage==='en'?'HOST DISCONNECTED':currentLanguage==='sv'?'VÄRDEN KOPPLADES FRÅN':'ХОСТ ОТКЛЮЧИЛСЯ');
+      try { if (mp.peer && !mp.peer.destroyed) mp.peer.destroy(); } catch (_) {} mp.peer=null; updateMpLobby();
+    }
+  });
+  conn.on('error', err => setMpStatus((currentLanguage==='en'?'CONNECTION ERROR: ':currentLanguage==='sv'?'ANSLUTNINGSFEL: ':'ОШИБКА СВЯЗИ: ')+(err && err.type ? err.type : 'WebRTC')));
+}
+function openPeer(peer, timeoutMs=14000) {
+  return new Promise((resolve,reject) => {
+    let done=false;
+    const timer=setTimeout(()=>{if(!done){done=true;reject(new Error('timeout'));}},timeoutMs);
+    peer.on('open', id=>{if(done)return;done=true;clearTimeout(timer);resolve(id);});
+    peer.on('error', err=>{
+      if (!done) {done=true;clearTimeout(timer);reject(err);}
+      else { const message = err && err.type ? err.type : 'network'; if (mp.active) setMpStatus((currentLanguage==='en'?'NETWORK ERROR: ':currentLanguage==='sv'?'NÄTVERKSFEL: ':'ОШИБКА СЕТИ: ')+message); }
+    });
+  });
+}
+function resetMpPlayers() {
+  mp.players.clear(); for (const id of Array.from(remoteAvatars.keys())) removeRemoteAvatar(id);
+}
+function leaveMultiplayer() {
+  mp.active=false;
+  stopAllMedia();
+  for (const c of mp.connections.values()) { try { c.close(); } catch (_) {} }
+  mp.connections.clear(); resetMpPlayers();
+  try { if (mp.peer && !mp.peer.destroyed) mp.peer.destroy(); } catch (_) {}
+  mp.peer=null; mp.isHost=false; mp.roomId=''; mp.lastSend=0; mp.lastSnapshot=0; mp.settings={maxPlayers:Math.max(2,Math.min(4,Number($('mpMaxPlayers')?.value)||4)),difficulty:$('mpDifficulty')?.value||'normal',monsterHears:$('mpMonsterHears')?.checked!==false,map:'coming'};
+  setMpStatus(currentLanguage==='en'?'DISCONNECTED':currentLanguage==='sv'?'FRÅNKOPPLAD':'НЕ ПОДКЛЮЧЕНО');
+  updateMpLobby();
+}
+async function createMpRoom() {
+  if (mp.peer) return;
+  if (!window.Peer) { setMpStatus(currentLanguage==='en'?'PEERJS DID NOT LOAD — CHECK INTERNET':currentLanguage==='sv'?'PEERJS KUNDE INTE LADDAS':'НЕ ЗАГРУЗИЛСЯ PEERJS — ПРОВЕРЬ ИНТЕРНЕТ'); return; }
+  $('mpCreate').disabled=true; $('mpJoin').disabled=true; setMpStatus(currentLanguage==='en'?'CREATING ROOM…':currentLanguage==='sv'?'SKAPAR RUM…':'СОЗДАНИЕ КОМНАТЫ…');
+  mp.settings=readMpSettings();
+  const room='tc-'+Math.random().toString(36).slice(2,8).padEnd(6,'x');
+  const peer=new Peer(room,{debug:0});
+  bindPeerMedia(peer); mp.peer=peer; mp.isHost=true; mp.roomId=room; mp.active=true; mp.players.clear();
+  $('mpRoomInput').value=room.toUpperCase(); updateMpLobby();
+  try {
+    await openPeer(peer); peer.on('connection', conn=>attachMpConnection(conn,true));
+    setMpStatus(currentLanguage==='en'?'ROOM READY — SHARE THE CODE':currentLanguage==='sv'?'RUMMET KLART — DELA KODEN':'КОМНАТА ГОТОВА — ОТПРАВЬ КОД ДРУГУ'); updateMpLobby();
+  } catch (err) {
+    try { if (!peer.destroyed) peer.destroy(); } catch (_) {}
+    if (mp.peer===peer) { mp.peer=null; mp.active=false; mp.isHost=false; mp.roomId=''; }
+    stopAllMedia();
+    setMpStatus((currentLanguage==='en'?'COULD NOT CREATE ROOM: ':currentLanguage==='sv'?'KUNDE INTE SKAPA RUM: ':'НЕ УДАЛОСЬ СОЗДАТЬ КОМНАТУ: ')+(err && err.type ? err.type : 'check internet / retry'));
+    updateMpLobby();
+  }
+}
+async function joinMpRoom() {
+  if (mp.peer) return;
+  if (!window.Peer) { setMpStatus(currentLanguage==='en'?'PEERJS DID NOT LOAD — CHECK INTERNET':currentLanguage==='sv'?'PEERJS KUNDE INTE LADDAS':'НЕ ЗАГРУЗИЛСЯ PEERJS — ПРОВЕРЬ ИНТЕРНЕТ'); return; }
+  const room=$('mpRoomInput').value.trim().toLowerCase().replace(/\s+/g,'');
+  if (!/^[a-z0-9][a-z0-9_-]{2,62}$/.test(room)) { setMpStatus(currentLanguage==='en'?'ENTER A VALID ROOM CODE':currentLanguage==='sv'?'ANGE EN GILTIG RUMSKOD':'ВВЕДИ КОРРЕКТНЫЙ КОД КОМНАТЫ'); return; }
+  $('mpCreate').disabled=true; $('mpJoin').disabled=true;
+  setMpStatus(currentLanguage==='en'?'CONNECTING…':currentLanguage==='sv'?'ANSLUTER…':'ПОДКЛЮЧЕНИЕ…');
+  const peer=new Peer(undefined,{debug:0}); bindPeerMedia(peer); mp.peer=peer; mp.isHost=false; mp.roomId=room; mp.active=true; mp.players.clear(); updateMpLobby();
+  try {
+    await openPeer(peer);
+    const conn=peer.connect(room,{reliable:true,serialization:'json',metadata:{name:mpName()}});
+    attachMpConnection(conn,false);
+    const failedTimer=setTimeout(()=>{if (mp.peer===peer && mp.isHost===false && mp.connections.size===0) setMpStatus(currentLanguage==='en'?'ROOM NOT FOUND OR CONNECTION BLOCKED':currentLanguage==='sv'?'RUMMET HITTADES INTE':'КОМНАТА НЕ НАЙДЕНА ИЛИ СВЯЗЬ БЛОКИРУЕТСЯ');},12000);
+    conn.on('open',()=>clearTimeout(failedTimer));
+  } catch (err) {
+    try { if (!peer.destroyed) peer.destroy(); } catch (_) {}
+    if (mp.peer===peer) { mp.peer=null; mp.active=false; mp.isHost=false; mp.roomId=''; }
+    stopAllMedia();
+    setMpStatus((currentLanguage==='en'?'CONNECTION FAILED: ':currentLanguage==='sv'?'ANSLUTNINGEN MISSLYCKADES: ':'НЕ УДАЛОСЬ ПОДКЛЮЧИТЬСЯ: ')+(err && err.type ? err.type : 'check internet / retry'));
+    updateMpLobby();
+  }
+}
+$('mpCreate').addEventListener('click', createMpRoom);
+$('mpJoin').addEventListener('click', joinMpRoom);
+$('mpLeave').addEventListener('click', leaveMultiplayer);
+$('mpCopy').addEventListener('click', async () => {
+  const code=$('mpRoomInput').value.trim(); if (!code) return;
+  try { await navigator.clipboard.writeText(code); setMpStatus(currentLanguage==='en'?'ROOM CODE COPIED':currentLanguage==='sv'?'RUMSKOD KOPIERAD':'КОД СКОПИРОВАН'); }
+  catch (_) { $('mpRoomInput').focus(); $('mpRoomInput').select(); try { document.execCommand('copy'); setMpStatus(currentLanguage==='en'?'ROOM CODE COPIED':currentLanguage==='sv'?'RUMSKOD KOPIERAD':'КОД СКОПИРОВАН'); } catch (_) { setMpStatus(currentLanguage==='en'?'SELECT AND COPY THE CODE':currentLanguage==='sv'?'MARKERA OCH KOPIERA KODEN':'ВЫДЕЛИ И СКОПИРУЙ КОД'); } }
+});
+$('mpName').addEventListener('change', updateMpLobby);
+function updateMultiplayer(dt) {
+  for (const avatar of remoteAvatars.values()) {
+    avatar.group.position.x += (avatar.targetX-avatar.group.position.x)*Math.min(1,dt*12);
+    avatar.group.position.z += (avatar.targetZ-avatar.group.position.z)*Math.min(1,dt*12);
+    let delta=avatar.targetYaw-avatar.group.rotation.y; while(delta>Math.PI)delta-=Math.PI*2; while(delta< -Math.PI)delta+=Math.PI*2;
+    avatar.group.rotation.y+=delta*Math.min(1,dt*10);
+  }
+  if (!mp.active || !mp.peer || mp.peer.destroyed) return;
+  const nowSec=performance.now()/1000;
+  const noiseThreshold=Math.max(4,35-(Number(mpMedia.sensitivity)||55)*0.3);
+  for (const p of mp.players.values()) if ((Number(p.noise)||0)>=noiseThreshold) mpMedia.lastHeardTarget={id:p.id,x:Number(p.x)||0,z:Number(p.z)||0,until:nowSec+4.2,level:Number(p.noise)||0};
+  syncMediaCalls();
+  mp.lastSend += dt; mp.lastSnapshot += dt;
+  if (!mp.isHost && mp.lastSend >= .05) {
+    mp.lastSend=0;
+    const conn=mp.connections.values().next().value;
+    if (conn && conn.open) { try { conn.send({type:'state',player:currentPlayerPacket()}); } catch (_) {} }
+  }
+  if (mp.isHost && mp.lastSnapshot >= .1) { mp.lastSnapshot=0; sendSnapshotToAll(); }
+}
+
+
+/* ============================================================
+   ROOM CONFIG + OPT-IN MICROPHONE / WEBCAM.
+   Cameras and microphones are never opened until the player clicks.
+   ============================================================ */
+function readMpSettings() {
+  return {
+    map:'coming',
+    maxPlayers:Math.max(2,Math.min(4,Number($('mpMaxPlayers')?.value)||4)),
+    difficulty:['easy','normal','nightmare'].includes($('mpDifficulty')?.value)?$('mpDifficulty').value:'normal',
+    monsterHears:$('mpMonsterHears') ? !!$('mpMonsterHears').checked : true
+  };
+}
+function applyMpSettings(settings) {
+  if (!settings || typeof settings!=='object') return;
+  mp.settings={map:'coming',maxPlayers:Math.max(2,Math.min(4,Number(settings.maxPlayers)||4)),difficulty:['easy','normal','nightmare'].includes(settings.difficulty)?settings.difficulty:'normal',monsterHears:settings.monsterHears!==false};
+  if ($('mpMaxPlayers')) $('mpMaxPlayers').value=String(mp.settings.maxPlayers);
+  if ($('mpDifficulty')) $('mpDifficulty').value=mp.settings.difficulty;
+  if ($('mpMonsterHears')) $('mpMonsterHears').checked=mp.settings.monsterHears;
+  updateMpLobby();
+}
+function setMpMediaStatus(message) { if ($('mpMediaStatus')) $('mpMediaStatus').textContent=message; }
+function updateMediaButtons() {
+  const mic=$('mpMicToggle'),cam=$('mpCamToggle');
+  mic.classList.toggle('active',mpMedia.audioOn); mic.textContent=tr(mpMedia.audioOn?'mpMicDisable':'mpMicEnable');
+  cam.classList.toggle('active',mpMedia.videoOn); cam.textContent=tr(mpMedia.videoOn?'mpCamDisable':'mpCamEnable');
+  $('mpMediaLed').textContent=(mpMedia.audioOn||mpMedia.videoOn)?'● MEDIA ONLINE':'● OFFLINE';
+  $('localPreview').srcObject=mpMedia.stream && mpMedia.videoOn ? mpMedia.stream : null;
+  if (mpMedia.stream && mpMedia.videoOn) $('localPreview').play().catch(()=>{});
+}
+function ensureMediaStream() { if (!mpMedia.stream) mpMedia.stream=new MediaStream(); return mpMedia.stream; }
+function rebuildMicAnalyser() {
+  if (mpMedia.analyser) { try { mpMedia.analyser.disconnect(); } catch (_) {} mpMedia.analyser=null; }
+  if (!mpMedia.audioOn || !mpMedia.stream) return;
+  try {
+    const AC=window.AudioContext||window.webkitAudioContext; if (!AC) return;
+    if (!mpMedia.audioContext) mpMedia.audioContext=new AC();
+    if (mpMedia.audioContext.state==='suspended') mpMedia.audioContext.resume().catch(()=>{});
+    mpMedia.analyser=mpMedia.audioContext.createAnalyser(); mpMedia.analyser.fftSize=512; mpMedia.analyser.smoothingTimeConstant=.35;
+    const source=mpMedia.audioContext.createMediaStreamSource(new MediaStream(mpMedia.stream.getAudioTracks())); source.connect(mpMedia.analyser);
+    mpMedia.analyserData=new Uint8Array(mpMedia.analyser.fftSize);
+  } catch (error) { console.warn('Mic analyser unavailable',error); }
+}
+function closeMediaCalls() {
+  for (const [id,entry] of mpMedia.calls.entries()) { try { entry.call.close(); } catch (_) {} clearRemoteMedia(id); }
+  mpMedia.calls.clear();
+}
+function syncMediaCalls() {
+  if (!mp.peer || mp.peer.destroyed || !mp.peer.id || !mp.active) return;
+  const localHas=!!(mpMedia.stream && mpMedia.stream.getTracks().some(t=>t.readyState==='live' && t.enabled));
+  const roster=new Map(Array.from(mp.players.values()).map(p=>[p.id,p]));
+  for (const [id,entry] of Array.from(mpMedia.calls.entries())) {
+    if (!roster.has(id)) { try { entry.call.close(); } catch (_) {} mpMedia.calls.delete(id); clearRemoteMedia(id); }
+  }
+  for (const p of roster.values()) {
+    if (!p.id || p.id===mp.peer.id) continue;
+    const remoteHas=!!(p.mediaAudio||p.mediaVideo);
+    const shouldInitiate=localHas && (!remoteHas || String(mp.peer.id).localeCompare(String(p.id))<0);
+    const signature=[mpMedia.audioOn?1:0,mpMedia.videoOn?1:0,p.mediaAudio?1:0,p.mediaVideo?1:0].join(':');
+    const old=mpMedia.calls.get(p.id);
+    if (old && old.incoming && !shouldInitiate) continue;
+    if (old && old.signature===signature && !old.closed) continue;
+    if (old) { try { old.call.close(); } catch (_) {} mpMedia.calls.delete(p.id); }
+    if (!shouldInitiate) continue;
+    try {
+      const call=mp.peer.call(p.id,mpMedia.stream,{metadata:{name:mpName(),audio:mpMedia.audioOn,video:mpMedia.videoOn}});
+      const entry={call,signature,closed:false,incoming:false}; mpMedia.calls.set(p.id,entry);
+      call.on('stream',stream=>setRemoteMedia(p.id,stream,p.name));
+      call.on('close',()=>{entry.closed=true;if(mpMedia.calls.get(p.id)===entry){mpMedia.calls.delete(p.id);clearRemoteMedia(p.id);}});
+      call.on('error',err=>{console.warn('Media call failed',err);});
+    } catch (err) { console.warn('Could not start media call',err); }
+  }
+}
+function bindPeerMedia(peer) {
+  peer.on('call', call=>{
+    try {
+      call.answer(mpMedia.stream && mpMedia.stream.getTracks().some(t=>t.readyState==='live') ? mpMedia.stream : undefined);
+      mpMedia.calls.set(call.peer,{call,signature:'incoming',closed:false,incoming:true});
+      call.on('stream',stream=>setRemoteMedia(call.peer,stream,mp.players.get(call.peer)?.name||'PLAYER'));
+      call.on('close',()=>{const entry=mpMedia.calls.get(call.peer);if(entry&&entry.call===call){mpMedia.calls.delete(call.peer);clearRemoteMedia(call.peer);}});
+      call.on('error',err=>console.warn('Incoming media call failed',err));
+    } catch (err) { console.warn('Could not answer media call',err); }
+  });
+}
+function setRemoteMedia(peerId, stream, name) {
+  let item=mpMedia.remoteViews.get(peerId);
+  if (!item) {
+    const tile=document.createElement('div'); tile.className='mp-remote-tile';
+    const title=document.createElement('strong'); title.textContent=String(name||'PLAYER').slice(0,16);
+    const video=document.createElement('video'); video.autoplay=true; video.playsInline=true; video.controls=false; video.muted=false; video.volume=1;
+    tile.append(title,video); $('mpRemoteMediaGrid').append(tile); $('mpRemoteMediaLayer').classList.add('active');
+    item={tile,title,video,texture:null,stream:null}; mpMedia.remoteViews.set(peerId,item);
+  }
+  item.title.textContent=String(name||mp.players.get(peerId)?.name||'PLAYER').slice(0,16);
+  if (item.stream!==stream) { item.stream=stream; item.video.srcObject=stream; item.video.play().catch(()=>{setMpMediaStatus(currentLanguage==='en'?'Tap the page once to allow remote audio playback.':'Нажми на страницу один раз, чтобы разрешить воспроизведение голоса.');}); }
+  const avatar=remoteAvatars.get(peerId);
+  const hasVideo=stream.getVideoTracks().some(t=>t.readyState==='live');
+  if (avatar && hasVideo && (!avatar.faceTexture || avatar.faceTexture.image!==item.video)) {
+    if (avatar.faceTexture) avatar.faceTexture.dispose();
+    avatar.faceTexture=new THREE.VideoTexture(item.video); avatar.faceTexture.colorSpace=THREE.SRGBColorSpace;
+    avatar.faceMesh.material.map=avatar.faceTexture; avatar.faceMesh.material.color.set(0xffffff); avatar.faceMesh.material.needsUpdate=true;
+  } else if (avatar && !hasVideo && avatar.faceTexture) {
+    avatar.faceTexture.dispose(); avatar.faceTexture=null; avatar.faceMesh.material.map=null; avatar.faceMesh.material.color.set(0x002b0a); avatar.faceMesh.material.needsUpdate=true;
+  }
+}
+function clearRemoteMedia(peerId) {
+  const item=mpMedia.remoteViews.get(peerId);
+  if (item) { try { item.video.pause(); item.video.srcObject=null; } catch (_) {} item.texture?.dispose?.(); item.tile.remove(); mpMedia.remoteViews.delete(peerId); if(mpMedia.remoteViews.size===0)$('mpRemoteMediaLayer').classList.remove('active'); }
+  const avatar=remoteAvatars.get(peerId);
+  if (avatar && avatar.faceTexture) { avatar.faceTexture.dispose(); avatar.faceTexture=null; avatar.faceMesh.material.map=null; avatar.faceMesh.material.color.set(0x002b0a); avatar.faceMesh.material.needsUpdate=true; }
+}
+async function toggleMicrophone() {
+  if (mpMedia.audioOn) {
+    if (mpMedia.stream) for (const track of mpMedia.stream.getAudioTracks()) { mpMedia.stream.removeTrack(track); track.stop(); }
+    mpMedia.audioOn=false; mpMedia.level=0; mpMedia.heardUntil=0; mpMedia.lastHeardTarget=null; rebuildMicAnalyser(); closeMediaCalls(); updateMediaButtons(); syncMediaCalls();
+    setMpMediaStatus(currentLanguage==='en'?'Microphone disabled.':currentLanguage==='sv'?'Mikrofonen är avstängd.':'Микрофон выключен.'); return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) { setMpMediaStatus(currentLanguage==='en'?'Microphone needs HTTPS (GitHub Pages is HTTPS) or localhost.':'Для микрофона нужен HTTPS (GitHub Pages подходит) или localhost.'); return; }
+  try {
+    const capture=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:false,autoGainControl:false},video:false});
+    const target=ensureMediaStream(); for (const track of capture.getAudioTracks()) target.addTrack(track);
+    mpMedia.audioOn=true; rebuildMicAnalyser(); updateMediaButtons(); closeMediaCalls(); syncMediaCalls();
+    setMpMediaStatus(currentLanguage==='en'?'Microphone on — voice is sent only while connected to a room.':'Микрофон включён — голос передаётся только при подключении к комнате.');
+  } catch (err) { setMpMediaStatus((currentLanguage==='en'?'Could not open microphone: ':'Не удалось включить микрофон: ')+(err && err.name ? err.name : 'permission denied')); }
+}
+async function toggleWebcam() {
+  if (mpMedia.videoOn) {
+    if (mpMedia.stream) for (const track of mpMedia.stream.getVideoTracks()) { mpMedia.stream.removeTrack(track); track.stop(); }
+    mpMedia.videoOn=false; updateMediaButtons(); closeMediaCalls(); syncMediaCalls();
+    for (const [id,item] of mpMedia.remoteViews) { const av=remoteAvatars.get(id); if(av&&av.faceTexture&&!item.stream?.getVideoTracks().length){av.faceTexture.dispose();av.faceTexture=null;av.faceMesh.material.map=null;av.faceMesh.material.color.set(0x002b0a);av.faceMesh.material.needsUpdate=true;} }
+    setMpMediaStatus(currentLanguage==='en'?'Webcam disabled.':'Веб-камера выключена.'); return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) { setMpMediaStatus(currentLanguage==='en'?'Webcam needs HTTPS (GitHub Pages is HTTPS) or localhost.':'Для веб-камеры нужен HTTPS (GitHub Pages подходит) или localhost.'); return; }
+  try {
+    const capture=await navigator.mediaDevices.getUserMedia({video:{width:{ideal:320},height:{ideal:240},facingMode:'user'},audio:false});
+    const target=ensureMediaStream(); for (const track of capture.getVideoTracks()) target.addTrack(track);
+    mpMedia.videoOn=true; updateMediaButtons(); closeMediaCalls(); syncMediaCalls();
+    setMpMediaStatus(currentLanguage==='en'?'Webcam on — your image appears on your teammates’ avatar.':'Веб-камера включена — изображение появится на лицах аватаров друзей.');
+  } catch (err) { setMpMediaStatus((currentLanguage==='en'?'Could not open webcam: ':'Не удалось включить веб-камеру: ')+(err && err.name ? err.name : 'permission denied')); }
+}
+function stopAllMedia() {
+  closeMediaCalls();
+  for (const id of Array.from(mpMedia.remoteViews.keys())) clearRemoteMedia(id);
+  if (mpMedia.stream) for (const track of mpMedia.stream.getTracks()) { try { track.stop(); } catch (_) {} }
+  mpMedia.stream=null; mpMedia.audioOn=false; mpMedia.videoOn=false; mpMedia.level=0; mpMedia.heardUntil=0; mpMedia.lastHeardTarget=null;
+  if (mpMedia.analyser) { try { mpMedia.analyser.disconnect(); } catch (_) {} }
+  mpMedia.analyser=null; mpMedia.analyserData=null;
+  if (mpMedia.audioContext && mpMedia.audioContext.state!=='closed') mpMedia.audioContext.close().catch(()=>{}); mpMedia.audioContext=null;
+  updateMediaButtons(); $('mpNoiseFill').style.width='0%'; $('mpNoiseValue').textContent='0%';
+}
+function updateMicMeter() {
+  if (mpMedia.analyser && mpMedia.analyserData) {
+    mpMedia.analyser.getByteTimeDomainData(mpMedia.analyserData);
+    let sum=0; for (const raw of mpMedia.analyserData) { const v=(raw-128)/128; sum+=v*v; }
+    const rms=Math.sqrt(sum/mpMedia.analyserData.length);
+    mpMedia.level=Math.round(Math.min(100,rms*600));
+    const sensitivity=Number($('mpNoiseSensitivity').value)||0; mpMedia.sensitivity=sensitivity;
+    $('mpNoiseValue').textContent=sensitivity+'%'; $('mpNoiseFill').style.width=mpMedia.level+'%';
+    const threshold=Math.max(4,35-sensitivity*.3);
+    if (mpMedia.level>=threshold) { const now=performance.now()/1000; mpMedia.heardUntil=Math.max(mpMedia.heardUntil,now+4.2); mpMedia.lastHeardTarget={id:mp.peer&&mp.peer.id?mp.peer.id:'local-player',x:camera.position.x,z:camera.position.z,until:now+4.2,level:mpMedia.level}; }
+    $('mpNoiseCaption').textContent=tr('mpNoiseLive')+': '+mpMedia.level+'% / '+(mpMedia.level>=threshold?(currentLanguage==='en'?'SIGNAL EXPOSED':'СИГНАЛ ОБНАРУЖЕН'):(currentLanguage==='en'?'QUIET':'ТИШИНА'));
+  } else {
+    mpMedia.level=0; if ($('mpNoiseFill')) $('mpNoiseFill').style.width='0%';
+    if ($('mpNoiseValue')) $('mpNoiseValue').textContent=(Number($('mpNoiseSensitivity').value)||0)+'%';
+  }
+}
+function resolveMonsterTarget() {
+  const enabled=mp.active ? mp.settings.monsterHears!==false : ($('mpMonsterHears') ? $('mpMonsterHears').checked : true);
+  if (!enabled) return null;
+  const now=performance.now()/1000;
+  const sensitivity=Number($('mpNoiseSensitivity')?.value)||55;
+  const threshold=Math.max(4,35-sensitivity*.3);
+  let loudest=null;
+  if (mpMedia.audioOn && mpMedia.level>=threshold) loudest={id:mp.peer&&mp.peer.id?mp.peer.id:'local-player',x:camera.position.x,z:camera.position.z,level:mpMedia.level};
+  if (mp.active) for (const p of mp.players.values()) {
+    const level=Number(p.noise)||0;
+    if (level>=threshold && (!loudest || level>loudest.level)) loudest={id:p.id,x:Number(p.x)||0,z:Number(p.z)||0,level};
+  }
+  if (loudest) {
+    mpMedia.lastHeardTarget={id:loudest.id,x:loudest.x,z:loudest.z,until:now+4.2,level:loudest.level};
+    return {...mpMedia.lastHeardTarget};
+  }
+  const last=mpMedia.lastHeardTarget;
+  if (last && last.until>now) {
+    if (last.id==='local-player' || (mp.peer && last.id===mp.peer.id)) return {...last,x:camera.position.x,z:camera.position.z};
+    const p=mp.players.get(last.id);
+    if (p) return {...last,x:Number(p.x)||0,z:Number(p.z)||0};
+  }
+  return null;
+}
+function monsterHearsVoice() { return !!resolveMonsterTarget(); }
+$('mpMicToggle').addEventListener('click',toggleMicrophone);
+$('mpCamToggle').addEventListener('click',toggleWebcam);
+$('mpNoiseSensitivity').addEventListener('input',()=>{mpMedia.sensitivity=Number($('mpNoiseSensitivity').value)||0;$('mpNoiseValue').textContent=mpMedia.sensitivity+'%';});
+$('mpBackHall').addEventListener('click',()=>{ $('mpComputerView').hidden=true; $('mpHallView').hidden=false; });
+document.querySelectorAll('[data-computer-slot]').forEach(button=>button.addEventListener('click',()=>{
+  const slot=String(button.dataset.computerSlot||'1').padStart(2,'0'); $('mpSelectedPc').textContent='PC-'+slot;
+  $('mpHallView').hidden=true; $('mpComputerView').hidden=false;
+  if (slot==='03') $('mpMapSelect').focus(); else if (slot==='04') $('mpMicToggle').focus(); else $('mpName').focus();
+}));
+function roomSettingChanged(){if(!mp.active||mp.isHost){mp.settings=readMpSettings();updateMpLobby();if(mp.active&&mp.isHost)sendRosterToAll();}}
+$('mpMaxPlayers').addEventListener('change',roomSettingChanged);
+$('mpDifficulty').addEventListener('change',roomSettingChanged);
+$('mpMonsterHears').addEventListener('change',roomSettingChanged);
+
+function startGame() {
+  if (state.started) return;
+  startEl.style.display = 'none'; document.body.classList.add('game-started'); muteEl.style.display = 'block'; state.started = true; state.paused = false;
+  spiderGroup.visible = false; legMat.opacity = 0; jointMat.opacity = 0;
+  Ambient.init(); Ambient.resume(); if (!touchDevice) canvas.requestPointerLock?.(); statusEl.textContent = tr('searching');
+}
+startEl.addEventListener('click', e => {
+  const playButton = e.target.closest('[data-action="play"]');
+  if (playButton) { startGame(); return; }
+  const pageButton = e.target.closest('[data-page]');
+  if (pageButton) { showMenuPage(pageButton.dataset.page); return; }
+  const languageButton = e.target.closest('[data-lang]');
+  if (languageButton) { applyLanguage(languageButton.dataset.lang); return; }
+});
+$('qualitySelect').addEventListener('change', e => {
+  const ratios = { low: touchDevice ? .7 : .65, medium: touchDevice ? .85 : 1, high: Math.min(window.devicePixelRatio || 1, touchDevice ? 1.15 : 1.5), ultra: Math.min(window.devicePixelRatio || 1, touchDevice ? 1.35 : 2) };
+  renderer.setPixelRatio(ratios[e.target.value] || 1); renderer.setSize(innerWidth, innerHeight);
+  try { localStorage.setItem('theCoderQuality', e.target.value); } catch (_) {}
+});
+$('volumeSlider').addEventListener('input', e => {
+  const value = Number(e.target.value); $('volumeValue').textContent = value + '%'; Ambient.setVolume(value / 100);
+  try { localStorage.setItem('theCoderVolume', String(value)); } catch (_) {}
+});
+$('languageSelect').addEventListener('change', e => applyLanguage(e.target.value));
+$('displaySelect').addEventListener('change', async e => {
+  try {
+    if (e.target.value === 'fullscreen') { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); }
+    else if (document.fullscreenElement) await document.exitFullscreen();
+  } catch (_) { e.target.value = document.fullscreenElement ? 'fullscreen' : 'window'; }
+  try { localStorage.setItem('theCoderDisplay', e.target.value); } catch (_) {}
+});
+document.addEventListener('fullscreenchange', () => { $('displaySelect').value = document.fullscreenElement ? 'fullscreen' : 'window'; renderer.setSize(innerWidth, innerHeight); });
+try {
+  const savedLang = localStorage.getItem('theCoderLanguage'); if (savedLang && languageText[savedLang]) currentLanguage = savedLang;
+  const savedQuality = localStorage.getItem('theCoderQuality'); if (savedQuality && $('qualitySelect').querySelector('option[value="'+savedQuality+'"]')) $('qualitySelect').value = savedQuality; else if (touchDevice) $('qualitySelect').value = 'low';
+  const savedVolume = localStorage.getItem('theCoderVolume'); if (savedVolume !== null) { $('volumeSlider').value = savedVolume; $('volumeValue').textContent = savedVolume + '%'; Ambient.setVolume(Number(savedVolume)/100); }
+  const savedDisplay = localStorage.getItem('theCoderDisplay'); if (savedDisplay === 'window' || savedDisplay === 'fullscreen') $('displaySelect').value = savedDisplay;
+} catch (_) {}
+const initialQuality = $('qualitySelect').value, initialRatios = { low: touchDevice ? .7 : .65, medium: touchDevice ? .85 : 1, high: Math.min(window.devicePixelRatio || 1, touchDevice ? 1.15 : 1.5), ultra: Math.min(window.devicePixelRatio || 1, touchDevice ? 1.35 : 2) };
+renderer.setPixelRatio(initialRatios[initialQuality] || 1); renderer.setSize(innerWidth, innerHeight);
+muteEl.style.display = 'none';
+applyLanguage(currentLanguage); showMenuPage('home'); updateMpLobby(); updateMediaButtons();
+pauseEl.addEventListener('click', () => { state.paused=false; pauseEl.style.display='none'; Ambient.resume(); if (!touchDevice) canvas.requestPointerLock?.(); statusEl.textContent=ent.active?tr('nearby'):tr('searching'); });
+document.addEventListener('pointerlockchange', () => { state.locked=document.pointerLockElement===canvas; if (state.started && !state.locked && !state.paused && !screamer.active) { state.paused=true; pauseEl.style.display='flex'; statusEl.textContent=tr('paused'); } });
+document.addEventListener('mousemove', e => { if (!state.locked || state.paused || !state.started) return; state.yaw-=e.movementX*.0018; state.pitch-=e.movementY*.0018; state.pitch=Math.max(-1.4,Math.min(1.4,state.pitch)); });
+document.addEventListener('keydown', e => {
+  if (e.code==='Escape') { if (state.started && !state.paused) { e.preventDefault(); setPaused(true); } return; }
+  if (e.code==='KeyM' && !e.repeat) { const muted=Ambient.toggle(); audioMuted=muted; muteEl.textContent=muted?tr('muteOff'):tr('muteOn'); return; }
+  state.keys[e.code]=true;
+});
+document.addEventListener('keyup', e => { state.keys[e.code]=false; });
+
+/* Touch input: joystick controls movement, swipe zone controls view, hold RUN to sprint. */
+const mobileJoystick = $('mobileJoystick'), mobileStick = $('mobileStick'), mobileLookZone = $('mobileLookZone');
+const mobileRunButton = $('mobileRun'), mobilePauseButton = $('mobilePause');
+let joystickPointerId = null, lookPointerId = null, lookLastX = 0, lookLastY = 0;
+function clearMobileJoystick() {
+  state.mobileMoveX = 0; state.mobileMoveY = 0; joystickPointerId = null;
+  mobileStick.style.setProperty('--stick-x', '0px'); mobileStick.style.setProperty('--stick-y', '0px');
+}
+function updateMobileJoystick(e) {
+  const r = mobileJoystick.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const max = r.width * .31, dx = e.clientX - cx, dy = e.clientY - cy, length = Math.hypot(dx, dy);
+  const scale = length > max ? max / length : 1, x = dx * scale, y = dy * scale;
+  state.mobileMoveX = Math.max(-1, Math.min(1, x / max));
+  state.mobileMoveY = Math.max(-1, Math.min(1, y / max));
+  mobileStick.style.setProperty('--stick-x', x + 'px'); mobileStick.style.setProperty('--stick-y', y + 'px');
+}
+mobileJoystick.addEventListener('pointerdown', e => {
+  if (!touchDevice || !state.started || state.paused) return;
+  e.preventDefault(); joystickPointerId = e.pointerId;
+  try { mobileJoystick.setPointerCapture(e.pointerId); } catch (_) {}
+  updateMobileJoystick(e);
+});
+mobileJoystick.addEventListener('pointermove', e => { if (e.pointerId === joystickPointerId) { e.preventDefault(); updateMobileJoystick(e); } });
+function endJoystick(e) { if (joystickPointerId !== null && (!e || e.pointerId === joystickPointerId)) clearMobileJoystick(); }
+mobileJoystick.addEventListener('pointerup', endJoystick); mobileJoystick.addEventListener('pointercancel', endJoystick); mobileJoystick.addEventListener('lostpointercapture', endJoystick);
+mobileLookZone.addEventListener('pointerdown', e => {
+  if (!touchDevice || !state.started || state.paused || screamer.active || lookPointerId !== null) return;
+  e.preventDefault(); lookPointerId = e.pointerId; lookLastX = e.clientX; lookLastY = e.clientY;
+  try { mobileLookZone.setPointerCapture(e.pointerId); } catch (_) {}
+});
+mobileLookZone.addEventListener('pointermove', e => {
+  if (e.pointerId !== lookPointerId || !state.started || state.paused) return;
+  e.preventDefault(); const dx = e.clientX - lookLastX, dy = e.clientY - lookLastY;
+  lookLastX = e.clientX; lookLastY = e.clientY;
+  state.yaw -= dx * .0042; state.pitch = Math.max(-1.4, Math.min(1.4, state.pitch - dy * .0042));
+});
+function endLook(e) { if (lookPointerId !== null && (!e || e.pointerId === lookPointerId)) lookPointerId = null; }
+mobileLookZone.addEventListener('pointerup', endLook); mobileLookZone.addEventListener('pointercancel', endLook); mobileLookZone.addEventListener('lostpointercapture', endLook);
+mobileRunButton.addEventListener('pointerdown', e => {
+  if (!touchDevice || !state.started || state.paused) return;
+  e.preventDefault(); state.mobileRunning = true; mobileRunButton.classList.add('pressed');
+  try { mobileRunButton.setPointerCapture(e.pointerId); } catch (_) {}
+});
+function endMobileRun() { state.mobileRunning = false; mobileRunButton.classList.remove('pressed'); }
+mobileRunButton.addEventListener('pointerup', endMobileRun); mobileRunButton.addEventListener('pointercancel', endMobileRun); mobileRunButton.addEventListener('lostpointercapture', endMobileRun);
+mobilePauseButton.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); if (state.started && !state.paused) setPaused(true); });
+$('mobileControls').addEventListener('contextmenu', e => e.preventDefault());
+window.addEventListener('pointerup', () => { if (touchDevice && state.paused) { clearMobileJoystick(); endMobileRun(); endLook(); } });
+
+muteEl.addEventListener('click', () => { const muted=Ambient.toggle(); audioMuted=muted; muteEl.textContent=muted?tr('muteOff'):tr('muteOn'); });
+window.addEventListener('blur', () => { clearMobileJoystick(); endMobileRun(); endLook(); if (state.started && !state.paused && !screamer.active) setPaused(true); });
+window.addEventListener('beforeunload', () => { try { if (mp.peer && !mp.peer.destroyed) mp.peer.destroy(); } catch (_) {} stopAllMedia(); });
+window.addEventListener('resize', () => { camera.aspect=innerWidth/innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth,innerHeight); sizeScreamerCanvas(); });
+
+const clock = new THREE.Clock(), particleAttr=pGeo.attributes.position;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt=Math.min(clock.getDelta(),.05), t=clock.elapsedTime;
+  if (!state.paused) {
+    worldGroup.rotation.y+=dt*(.02+state.vel.length()*.002); worldGroup.rotation.x=Math.sin(t*.1)*.03; worldGroup.rotation.z=Math.cos(t*.08)*.03;
+    scene.fog.density=.026+Math.sin(t*.5)*.003; pMat.opacity=.58+Math.sin(t*.9)*.13;
+    fwd.set(-Math.sin(state.yaw),0,-Math.cos(state.yaw)); right.set(Math.cos(state.yaw),0,-Math.sin(state.yaw)); move.set(0,0,0);
+    if (state.started && !screamer.active) { if(state.keys.KeyW)move.add(fwd); if(state.keys.KeyS)move.sub(fwd); if(state.keys.KeyD)move.add(right); if(state.keys.KeyA)move.sub(right); move.addScaledVector(fwd, -state.mobileMoveY); move.addScaledVector(right, state.mobileMoveX); }
+    const running=!!(state.keys.ShiftLeft||state.keys.ShiftRight||state.mobileRunning), baseSpeed=running?27:11;
+    if(move.lengthSq()>0)move.normalize().multiplyScalar(baseSpeed);
+    state.vel.lerp(move,Math.min(1,dt*8)); camera.position.addScaledVector(state.vel,dt);
+    const limit=WORLD/2-10; camera.position.x=Math.max(-limit,Math.min(limit,camera.position.x)); camera.position.z=Math.max(-limit,Math.min(limit,camera.position.z)); camera.position.y=4;
+    const speedNorm=Math.min(1.5,state.vel.length()/baseSpeed), targetAmp=speedNorm*(running?.075:.045); state.bobAmp+=(targetAmp-state.bobAmp)*Math.min(1,dt*8); state.bobT+=dt*(3+speedNorm*(running?6:3));
+    const strafe=(state.keys.KeyD?1:0)-(state.keys.KeyA?1:0), targetRoll=-strafe*.02*speedNorm; state.roll+=(targetRoll-state.roll)*Math.min(1,dt*8);
+    const targetFov=BASE_FOV+(running&&speedNorm>.3?8:0); state.fov+=(targetFov-state.fov)*Math.min(1,dt*8); if(Math.abs(camera.fov-state.fov)>.01){camera.fov=state.fov;camera.updateProjectionMatrix();}
+    camera.rotation.order='YXZ'; const shakeX=screamer.active?(Math.random()-.5)*.18:0, shakeY=screamer.active?(Math.random()-.5)*.18:0;
+    camera.rotation.y=state.yaw+Math.sin(t*.3)*.003+shakeX; camera.rotation.x=state.pitch+Math.cos(t*.25)*.002+shakeY; camera.rotation.z=state.roll;
+    camera.position.y=4+Math.sin(state.bobT*2)*state.bobAmp;
+    for(const s of sprites){const u=s.userData;s.position.y=u.baseY+Math.sin(t*u.speed+u.phase)*.6;}
+    const arr=particleAttr.array; for(let i=0;i<STREAM_COUNT;i++){arr[i*3+1]+=particleVel[i]*dt;if(arr[i*3+1]>112){arr[i*3+1]=-8;arr[i*3]=(Math.random()-.5)*WORLD;arr[i*3+2]=(Math.random()-.5)*WORLD;}} particleAttr.needsUpdate=true;
+    for(const p of panels){const u=p.userData;p.rotation.y+=u.sp*dt;p.position.y+=Math.sin(t*.4+u.ph)*.012;}
+    anonSpr.position.y=16+Math.sin(t*.5)*1.2; anonSpr.material.opacity=.7+Math.sin(t*.8)*.2;
+    updateMicMeter();
+    updateSpider(dt,t);
+    updateMultiplayer(dt);
+    if (!state.started) {
+      spiderGroup.visible = true; spiderGroup.position.set(14, 0, -30); spiderGroup.rotation.y += dt * 0.12;
+      legMat.opacity = 0.88; jointMat.opacity = 0.92;
+      const menuPulse = 0.72 + Math.sin(t * 1.25) * 0.12; legMat.color.setRGB(0, menuPulse, 0); jointMat.color.setRGB(menuPulse * 0.55, menuPulse, menuPulse * 0.62);
+      updateLegs(t, 0.22, 0.12);
+    }
+  }
+  drawScreamer(dt); renderer.render(scene,camera);
+}
+sizeScreamerCanvas(); animate();
+})();
+</script>
+</body>
+</html>
